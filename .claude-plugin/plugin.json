@@ -1,0 +1,19 @@
+{
+  "name": "cowork-skills",
+  "version": "1.0.0",
+  "description": "Integrated Rust development skills for multiple domains (UI, Robotics, etc.)",
+  "author": "ZhangHanDong",
+  "repository": "git@github.com:ZhangHanDong/cowork-skills.git",
+  "license": "MIT",
+  "dependencies": [
+    "plugins/rust-skills",
+    "plugins/makepad-skills",
+    "plugins/dora-skills"
+  ],
+  "skillDirs": [
+    "skills",
+    "plugins/rust-skills/skills",
+    "plugins/makepad-skills/skills",
+    "plugins/dora-skills/skills"
+  ]
+}

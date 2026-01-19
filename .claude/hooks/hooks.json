@@ -1,0 +1,8 @@
+{
+  "hooks": [
+    {
+      "type": "UserPromptSubmit",
+      "script": ".claude/hooks/cowork-router-hook.sh"
+    }
+  ]
+}
