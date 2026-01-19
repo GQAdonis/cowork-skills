@@ -1,126 +1,126 @@
 # CoWork Skills
 
-[中文](./README-zh.md) | [日本語](./README-ja.md)
+[English](./README.md) | [日本語](./README-ja.md)
 
-> Integrated Rust development assistant for multiple domains
+> 多领域集成的 Rust 开发助手
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-Plugin-blue)](https://github.com/anthropics/claude-code)
 
-## What is CoWork Skills?
+## 什么是 CoWork Skills？
 
-**CoWork Skills** is a parent plugin that integrates multiple Rust domain skills into a unified development experience:
+**CoWork Skills** 是一个父插件，将多个 Rust 领域技能集成到统一的开发体验中：
 
-- **rust-skills** - Core Rust language knowledge (ownership, concurrency, error handling)
-- **makepad-skills** - Makepad UI framework development
-- **dora-skills** - Dora-rs robotics framework development
+- **rust-skills** - Rust 核心语言知识（所有权、并发、错误处理）
+- **makepad-skills** - Makepad UI 框架开发
+- **dora-skills** - Dora-rs 机器人框架开发
 
-## Architecture
+## 架构
 
 ```
 cowork-skills/
 ├── skills/
-│   └── cowork-router/     # Master router
+│   └── cowork-router/     # 主路由器
 ├── plugins/
-│   ├── rust-skills/       # Git submodule - Core Rust
+│   ├── rust-skills/       # Git submodule - Rust 核心
 │   ├── makepad-skills/    # Git submodule - UI
-│   └── dora-skills/       # Git submodule - Robotics
-└── .claude/hooks/         # Unified hooks
+│   └── dora-skills/       # Git submodule - 机器人
+└── .claude/hooks/         # 统一 hooks
 ```
 
-## Installation
+## 安装
 
-### Clone with Submodules
+### 克隆（包含子模块）
 
 ```bash
 git clone --recurse-submodules https://github.com/ZhangHanDong/cowork-skills.git
 ```
 
-### Launch Claude Code
+### 启动 Claude Code
 
 ```bash
 claude --plugin-dir /path/to/cowork-skills
 ```
 
-### Permission Configuration
+### 权限配置
 
-Copy the example settings to your project:
+复制示例配置到你的项目：
 
 ```bash
 cp /path/to/cowork-skills/.claude/settings.example.json .claude/settings.local.json
 ```
 
-## How It Works
+## 工作原理
 
 ```
-User Question
+用户问题
      │
      ▼
 ┌─────────────────────────────────┐
 │       cowork-router-hook        │
-│  Detect domain from keywords    │
+│       从关键词检测领域            │
 └─────────────────────────────────┘
      │
      ├─────────────┬─────────────┐
      ▼             ▼             ▼
 ┌─────────┐  ┌─────────┐  ┌─────────┐
 │ Makepad │  │  Dora   │  │  Rust   │
-│ Router  │  │ Router  │  │ Router  │
+│ 路由器   │  │ 路由器   │  │ 路由器   │
 └─────────┘  └─────────┘  └─────────┘
      │             │             │
      └─────────────┴─────────────┘
                    │
                    ▼
-         Domain-aware Answer
+           领域感知的回答
 ```
 
-## Domain Skills
+## 领域技能
 
-| Domain | Plugin | Description |
-|--------|--------|-------------|
-| **Rust Core** | rust-skills | Ownership, concurrency, error handling, meta-cognition framework |
-| **UI Development** | makepad-skills | Makepad widgets, views, live design |
-| **Robotics** | dora-skills | Dora nodes, operators, dataflow |
+| 领域 | 插件 | 描述 |
+|------|------|------|
+| **Rust 核心** | rust-skills | 所有权、并发、错误处理、元认知框架 |
+| **UI 开发** | makepad-skills | Makepad widgets、views、live design |
+| **机器人** | dora-skills | Dora nodes、operators、dataflow |
 
-## Cross-Domain Questions
+## 跨领域问题
 
-CoWork Skills handles questions that span multiple domains:
+CoWork Skills 处理涉及多个领域的问题：
 
 ```
-User: "How to handle E0382 in Makepad widget?"
+用户: "Makepad widget 中如何处理 E0382？"
 
-CoWork Router:
-├── Primary: Makepad (UI context)
-├── Secondary: E0382 (Rust ownership)
-└── Action: Load both skills, combine knowledge
+CoWork 路由:
+├── 主领域: Makepad (UI 上下文)
+├── 子问题: E0382 (Rust 所有权)
+└── 操作: 加载两个技能，结合知识回答
 ```
 
-## Updating Submodules
+## 更新子模块
 
 ```bash
 cd cowork-skills
 
-# Update all submodules
+# 更新所有子模块
 git submodule update --remote
 
-# Or update specific submodule
+# 或更新特定子模块
 cd plugins/rust-skills && git pull origin main
 ```
 
-## Using Individual Plugins
+## 单独使用插件
 
-Each plugin can also be used standalone:
+每个插件也可以独立使用：
 
 ```bash
 claude --plugin-dir /path/to/cowork-skills/plugins/rust-skills
 claude --plugin-dir /path/to/cowork-skills/plugins/makepad-skills
 ```
 
-## License
+## 许可证
 
-MIT License
+MIT 许可证
 
-## Links
+## 链接
 
 - **rust-skills**: https://github.com/ZhangHanDong/rust-skills
 - **Issues**: https://github.com/ZhangHanDong/cowork-skills/issues
