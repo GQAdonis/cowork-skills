@@ -20,13 +20,19 @@
 ```
 cowork-skills/
 ├── skills/
-│   └── cowork-router/     # マスタールーター
+│   ├── cowork-router/     # マスタールーター (ネイティブ)
+│   ├── rust-router/       # → plugins/rust-skills/skills/ へのシンボリックリンク
+│   ├── m01-ownership/     # → plugins/rust-skills/skills/ へのシンボリックリンク
+│   └── ...                # 全サブプラグイン skills はシンボリックリンク経由
 ├── plugins/
 │   ├── rust-skills/       # Git submodule - Rust コア
 │   ├── makepad-skills/    # Git submodule - UI
 │   └── dora-skills/       # Git submodule - ロボティクス
-└── .claude/hooks/         # 統合 hooks
+├── .claude/hooks/         # 統合 hooks
+└── sync-skills.sh         # シンボリックリンク同期スクリプト
 ```
+
+> **注意**: Claude Code はプラグインルートの `skills/` のみをロードします。サブプラグインの skills を含めるためにシンボリックリンクを使用しています。
 
 ## インストール
 
@@ -103,8 +109,23 @@ cd cowork-skills
 # 全サブモジュール更新
 git submodule update --remote
 
+# 更新後にシンボリックリンクを再同期
+./sync-skills.sh
+
 # または特定のサブモジュール更新
 cd plugins/rust-skills && git pull origin main
+```
+
+## 新しいサブプラグインの追加
+
+```bash
+cd cowork-skills
+
+# 新しいプラグインを submodule として追加
+git submodule add https://github.com/user/makepad-skills.git plugins/makepad-skills
+
+# シンボリックリンクを同期
+./sync-skills.sh
 ```
 
 ## 個別プラグイン使用

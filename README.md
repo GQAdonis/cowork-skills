@@ -20,13 +20,19 @@
 ```
 cowork-skills/
 ├── skills/
-│   └── cowork-router/     # Master router
+│   ├── cowork-router/     # Master router (native)
+│   ├── rust-router/       # → symlink to plugins/rust-skills/skills/
+│   ├── m01-ownership/     # → symlink to plugins/rust-skills/skills/
+│   └── ...                # All sub-plugin skills via symlinks
 ├── plugins/
 │   ├── rust-skills/       # Git submodule - Core Rust
 │   ├── makepad-skills/    # Git submodule - UI
 │   └── dora-skills/       # Git submodule - Robotics
-└── .claude/hooks/         # Unified hooks
+├── .claude/hooks/         # Unified hooks
+└── sync-skills.sh         # Script to sync symlinks
 ```
+
+> **Note**: Claude Code only loads skills from the plugin's root `skills/` directory. We use symlinks to include sub-plugin skills.
 
 ## Installation
 
@@ -103,8 +109,23 @@ cd cowork-skills
 # Update all submodules
 git submodule update --remote
 
+# Re-sync skills symlinks after update
+./sync-skills.sh
+
 # Or update specific submodule
 cd plugins/rust-skills && git pull origin main
+```
+
+## Adding New Sub-Plugins
+
+```bash
+cd cowork-skills
+
+# Add new plugin as submodule
+git submodule add https://github.com/user/makepad-skills.git plugins/makepad-skills
+
+# Sync skills symlinks
+./sync-skills.sh
 ```
 
 ## Using Individual Plugins

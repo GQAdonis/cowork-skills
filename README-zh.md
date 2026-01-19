@@ -20,13 +20,19 @@
 ```
 cowork-skills/
 ├── skills/
-│   └── cowork-router/     # 主路由器
+│   ├── cowork-router/     # 主路由器 (原生)
+│   ├── rust-router/       # → 符号链接到 plugins/rust-skills/skills/
+│   ├── m01-ownership/     # → 符号链接到 plugins/rust-skills/skills/
+│   └── ...                # 所有子插件 skills 通过符号链接
 ├── plugins/
 │   ├── rust-skills/       # Git submodule - Rust 核心
 │   ├── makepad-skills/    # Git submodule - UI
 │   └── dora-skills/       # Git submodule - 机器人
-└── .claude/hooks/         # 统一 hooks
+├── .claude/hooks/         # 统一 hooks
+└── sync-skills.sh         # 同步符号链接脚本
 ```
+
+> **注意**: Claude Code 只加载插件根目录的 `skills/`。我们使用符号链接来包含子插件的 skills。
 
 ## 安装
 
@@ -103,8 +109,23 @@ cd cowork-skills
 # 更新所有子模块
 git submodule update --remote
 
+# 更新后重新同步符号链接
+./sync-skills.sh
+
 # 或更新特定子模块
 cd plugins/rust-skills && git pull origin main
+```
+
+## 添加新子插件
+
+```bash
+cd cowork-skills
+
+# 添加新插件为 submodule
+git submodule add https://github.com/user/makepad-skills.git plugins/makepad-skills
+
+# 同步符号链接
+./sync-skills.sh
 ```
 
 ## 单独使用插件
