@@ -1,0 +1,12 @@
+pub mod audit;
+pub mod config;
+pub mod doctor;
+pub mod generate;
+pub mod init;
+pub mod install;
+pub mod list;
+pub mod plugins;
+pub mod search;
+pub mod status;
+pub mod test;
+pub mod verify;

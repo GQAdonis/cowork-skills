@@ -1,3 +1,0 @@
-[submodule "plugins/rust-skills"]
-	path = plugins/rust-skills
-	url = https://github.com/ZhangHanDong/rust-skills.git

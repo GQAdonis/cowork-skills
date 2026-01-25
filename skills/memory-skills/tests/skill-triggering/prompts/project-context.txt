@@ -1,0 +1,1 @@
+记住这个项目使用 axum 作为 web 框架，数据库是 PostgreSQL

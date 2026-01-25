@@ -1,0 +1,32 @@
+[project]
+name = "cowork-skills"
+
+[skills.global]
+enabled = ["memory-filesystem"]
+
+[skills.install]
+remotion = "remotion-dev/skills"
+
+[skills.groups]
+
+[triggers]
+
+# Security configuration
+[security]
+# Trusted GitHub authors
+trusted_authors = [
+    "ZhangHanDong",
+    "anthropics",
+]
+
+# Paths to skip during security scanning (glob patterns)
+# These are documentation files that describe security patterns, not actual threats
+skip_paths = [
+    "**/hookify/skills/writing-rules/**",
+    "**/docs/**",
+]
+
+# Trusted marketplace plugin prefixes (skip scanning these plugins)
+trusted_marketplaces = [
+    "hookify",
+]

@@ -2,87 +2,84 @@
 
 ## Overview
 
-CoWork Skills is a parent plugin that integrates multiple Rust domain skills:
-- **rust-skills**: Core Rust language (ownership, concurrency, error handling)
-- **makepad-skills**: Makepad UI framework
-- **dora-skills**: Dora-rs robotics framework
+CoWork Skills is a CLI tool (`cowork` / `co`) for managing Claude Code skills:
+- Install skills from GitHub repositories
+- Generate skills from source code
+- Search for skill repositories
+- Manage Claude Code marketplace plugins
 
-## CRITICAL: Routing Priority
+## CLI Tool
 
-For ANY question in a Rust project, follow this routing order:
+Use the `cowork` CLI to manage skills:
 
-```
-1. cowork-router    → Detect domain context
-2. Domain router    → rust-router / makepad-router / dora-router
-3. Specific skill   → m01-ownership / makepad-widget / dora-node
-```
+```bash
+# Build and install CLI
+cd cli && cargo install --path .
 
-## Domain Detection
+# Initialize built-in skills
+cowork init
 
-| Keywords | Domain | Router |
-|----------|--------|--------|
-| makepad, widget, view, live_design | UI | makepad-router |
-| dora, node, operator, dataflow | Robotics | dora-router |
-| E0xxx, ownership, async, trait | Rust Core | rust-router |
+# Install from GitHub repository
+cowork install user/repo
 
-## Skill Inheritance
+# Install specific skills
+cowork install user/repo -s skill1 -s skill2
 
-All domain skills inherit from rust-skills:
+# Install to specific agents
+cowork install user/repo -a claude-code -a cursor
 
-```
-rust-skills (Base)
-├── Layer 1: m01-m07 (Language Mechanics)
-├── Layer 2: m09-m15 (Design Patterns)
-└── Layer 3: domains/* (Domain Constraints)
-        │
-        ├──────────────────┐
-        ▼                  ▼
-makepad-skills         dora-skills
-(UI Domain)            (Robotics Domain)
-```
+# List installed repositories
+cowork install --list
 
-## Cross-Domain Questions
+# Uninstall a repository
+cowork install --uninstall repo-name
 
-When a question involves multiple domains:
+# Generate skills from source code
+cowork generate user/repo --lang rust
 
-1. **Identify primary domain** - What is the main context?
-2. **Load primary router** - Get domain-specific constraints
-3. **Load Rust skill** - Get language mechanics
-4. **Combine knowledge** - Answer with full context
+# Search for skill repositories
+cowork search agent-skill --topic
 
-### Example
+# List all skills
+cowork list
 
-```
-User: "Makepad widget 中如何解决 E0382"
-
-Analysis:
-- Primary: Makepad (widget context)
-- Secondary: E0382 (ownership error)
-
-Action:
-1. Load makepad-router → Widget lifecycle
-2. Load m01-ownership → Ownership mechanics
-3. Combine → Ownership design for UI components
+# Check status
+cowork status
+cowork doctor
 ```
 
-## Available Sub-Plugins
+## Commands
 
-### rust-skills (plugins/rust-skills/)
-- `rust-router` - Core Rust question router
-- `m01-m07` - Language mechanics (ownership, concurrency, etc.)
-- `m09-m15` - Design patterns (domain modeling, performance, etc.)
-- `domains/*` - Domain constraints (fintech, web, CLI, etc.)
-- `rust-learner` - Latest Rust/crate version info
+| Command | Description |
+|---------|-------------|
+| `cowork init` | Install built-in skills to ~/.claude/skills/ |
+| `cowork install` | Install skills from GitHub or local path |
+| `cowork generate` | Generate skills from a GitHub repository |
+| `cowork search` | Search GitHub for skill repositories |
+| `cowork plugins` | Manage Claude Code marketplace plugins |
+| `cowork list` | List all available skills |
+| `cowork status` | Show current configuration |
+| `cowork doctor` | Check for configuration issues |
+| `cowork config` | Manage project-level skill configuration |
+| `cowork test` | Generate trigger tests for skills |
 
-### makepad-skills (plugins/makepad-skills/)
-- `makepad-router` - Makepad question router
-- Widget, View, LiveDesign patterns
-- UI performance optimization
+## Storage Locations
 
-### dora-skills (plugins/dora-skills/)
-- `dora-router` - Dora question router
-- Node, Operator, Dataflow patterns
-- Real-time robotics constraints
+| Location | Purpose |
+|----------|---------|
+| `~/.cowork/repos/` | Cloned GitHub repositories |
+| `~/.claude/skills/` | Global skills directory |
+| `./skills/` | Project-local skills |
+
+## Global Skills (~/.claude/skills/)
+
+Cross-project tools automatically available:
+
+| Skill | When to Use |
+|-------|-------------|
+| `memory-filesystem` | remember, recall, reflect, memory |
+| `best-skill-creator` | create skill, skill template |
+| `writing-assistant` | writing, grammar, polish text |
 
 ## Default Project Settings
 

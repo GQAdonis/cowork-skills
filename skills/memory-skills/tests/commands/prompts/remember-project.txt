@@ -1,0 +1,1 @@
+/remember --project 这个项目的 API 使用 REST 风格，所有端点都以 /api/v1 开头

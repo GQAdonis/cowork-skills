@@ -2,146 +2,414 @@
 
 [English](./README.md) | [日本語](./README-ja.md)
 
-> 多领域集成的 Rust 开发助手
+> 跨 16+ AI 编程助手的技能管理 CLI 工具
 
+[![Crates.io](https://img.shields.io/crates/v/cowork.svg)](https://crates.io/crates/cowork)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-Plugin-blue)](https://github.com/anthropics/claude-code)
 
+## 助手支持状态
+
+| 助手 | 状态 | 说明 |
+|------|------|------|
+| **Claude Code** | 完整测试 | 所有功能已验证 |
+| Cursor | 社区贡献 | 欢迎测试和贡献 |
+| Codex | 社区贡献 | 欢迎测试和贡献 |
+| GitHub Copilot | 社区贡献 | 欢迎测试和贡献 |
+| Windsurf | 社区贡献 | 欢迎测试和贡献 |
+| Goose | 社区贡献 | 欢迎测试和贡献 |
+| Amp | 社区贡献 | 欢迎测试和贡献 |
+| Roo | 社区贡献 | 欢迎测试和贡献 |
+| Kiro CLI | 社区贡献 | 欢迎测试和贡献 |
+| Gemini CLI | 社区贡献 | 欢迎测试和贡献 |
+| OpenCode | 社区贡献 | 欢迎测试和贡献 |
+| Antigravity | 社区贡献 | 欢迎测试和贡献 |
+| Clawdbot | 社区贡献 | 欢迎测试和贡献 |
+| Droid | 社区贡献 | 欢迎测试和贡献 |
+| Kilo | 社区贡献 | 欢迎测试和贡献 |
+| Trae | 社区贡献 | 欢迎测试和贡献 |
+
+> **说明：** CoWork Skills 已在 Claude Code 上完整测试。其他助手的支持基于文档记录的技能目录规范。**我们需要大家共同测试和贡献！** 如果你使用这些工具，请帮助我们验证兼容性并提交 PR。
+
 ## 什么是 CoWork Skills？
 
-**CoWork Skills** 是一个父插件，将多个 Rust 领域技能集成到统一的开发体验中：
+**CoWork Skills** 提供 CLI 工具 (`cowork` / `co`) 用于管理多个编程助手的技能：
 
-- **rust-skills** - Rust 核心语言知识（所有权、并发、错误处理）
-- **makepad-skills** - Makepad UI 框架开发
-- **dora-skills** - Dora-rs 机器人框架开发
+- 从 GitHub 仓库安装技能到 16+ AI 助手
+- 从源代码生成技能（Rust、TypeScript、Python）
+- 通过 `Skills.toml` 进行项目级配置
+- 安全审计和校验和验证
+- 搜索 GitHub 技能仓库
+- 管理 Claude Code 插件市场
 
-## 架构
+## 快速开始
 
-```
-cowork-skills/
-├── skills/
-│   ├── cowork-router/     # 主路由器 (原生)
-│   ├── rust-router/       # → 符号链接到 plugins/rust-skills/skills/
-│   ├── m01-ownership/     # → 符号链接到 plugins/rust-skills/skills/
-│   └── ...                # 所有子插件 skills 通过符号链接
-├── plugins/
-│   ├── rust-skills/       # Git submodule - Rust 核心
-│   ├── makepad-skills/    # Git submodule - UI
-│   └── dora-skills/       # Git submodule - 机器人
-├── .claude/hooks/         # 统一 hooks
-└── sync-skills.sh         # 同步符号链接脚本
-```
+### 安装
 
-> **注意**: Claude Code 只加载插件根目录的 `skills/`。我们使用符号链接来包含子插件的 skills。
-
-## 安装
-
-### 克隆（包含子模块）
+**一键安装（推荐）：**
 
 ```bash
-git clone --recurse-submodules https://github.com/ZhangHanDong/cowork-skills.git
+curl -sSL https://raw.githubusercontent.com/ZhangHanDong/cowork-skills/main/install.sh | bash
 ```
 
-### 启动 Claude Code
+**或手动安装：**
 
 ```bash
-claude --plugin-dir /path/to/cowork-skills
+# 方式 1：从 crates.io
+cargo install cowork
+
+# 方式 2：从源码
+git clone https://github.com/ZhangHanDong/cowork-skills
+cd cowork-skills/cli
+cargo install --path .
+
+# 初始化内置技能
+cowork init
 ```
 
-### 权限配置
-
-复制示例配置到你的项目：
+### 安装技能
 
 ```bash
-cp /path/to/cowork-skills/.claude/settings.example.json .claude/settings.local.json
+# 从 GitHub 安装
+cowork install user/repo
+
+# 安装特定技能
+cowork install user/repo -s skill1 -s skill2
+
+# 安装到特定助手
+cowork install user/repo -a claude-code -a cursor
+
+# 作为插件安装（保留完整仓库结构）
+cowork install user/repo --plugin
+
+# 安装到项目本地 (.claude/skills/)
+cowork install user/repo --local
+
+# 更新到最新版本
+cowork install user/repo --update
+
+# 列出已安装的仓库
+cowork install --list
 ```
 
-## 工作原理
+## CLI 命令
 
-```
-用户问题
-     │
-     ▼
-┌─────────────────────────────────┐
-│       cowork-router-hook        │
-│       从关键词检测领域            │
-└─────────────────────────────────┘
-     │
-     ├─────────────┬─────────────┐
-     ▼             ▼             ▼
-┌─────────┐  ┌─────────┐  ┌─────────┐
-│ Makepad │  │  Dora   │  │  Rust   │
-│ 路由器   │  │ 路由器   │  │ 路由器   │
-└─────────┘  └─────────┘  └─────────┘
-     │             │             │
-     └─────────────┴─────────────┘
-                   │
-                   ▼
-           领域感知的回答
-```
+| 命令 | 描述 |
+|------|------|
+| `cowork init` | 安装内置技能到 ~/.claude/skills/ |
+| `cowork install` | 从 GitHub 或本地路径安装技能 |
+| `cowork generate` | 从 GitHub 仓库生成技能 |
+| `cowork search` | 搜索 GitHub 技能仓库 |
+| `cowork plugins` | 管理 Claude Code 插件市场 |
+| `cowork config` | 管理项目级技能配置 |
+| `cowork list` | 列出所有可用技能 |
+| `cowork status` | 显示当前配置 |
+| `cowork doctor` | 检查配置问题 |
+| `cowork test` | 生成并运行技能触发测试 |
+| `cowork audit` | 安全审计已安装的技能 |
+| `cowork verify` | 验证已安装技能的校验和 |
 
-## 领域技能
+使用 `co` 作为 `cowork` 的简短别名。
 
-| 领域 | 插件 | 描述 |
-|------|------|------|
-| **Rust 核心** | rust-skills | 所有权、并发、错误处理、元认知框架 |
-| **UI 开发** | makepad-skills | Makepad widgets、views、live design |
-| **机器人** | dora-skills | Dora nodes、operators、dataflow |
+## 从源代码生成技能
 
-## 跨领域问题
-
-CoWork Skills 处理涉及多个领域的问题：
-
-```
-用户: "Makepad widget 中如何处理 E0382？"
-
-CoWork 路由:
-├── 主领域: Makepad (UI 上下文)
-├── 子问题: E0382 (Rust 所有权)
-└── 操作: 加载两个技能，结合知识回答
-```
-
-## 更新子模块
+通过解析源代码从任意 GitHub 仓库生成技能：
 
 ```bash
-cd cowork-skills
+# 生成 Rust 技能
+cowork generate tokio-rs/tokio --lang rust
 
-# 更新所有子模块
-git submodule update --remote
+# 生成 TypeScript 技能
+cowork generate vercel/next.js --lang typescript
 
-# 更新后重新同步符号链接
-./sync-skills.sh
-
-# 或更新特定子模块
-cd plugins/rust-skills && git pull origin main
+# 仅生成 llms.txt
+cowork generate user/repo --llms-only -o ./output
 ```
 
-## 添加新子插件
+### 支持的语言
+
+| 语言 | 解析器 | 提取内容 |
+|------|--------|----------|
+| Rust | `syn` | pub fn, struct, enum, trait, impl |
+| TypeScript | `tree-sitter` | export function, class, interface, type |
+| Python | `tree-sitter` | def, class（排除 `_` 私有项） |
+
+## 搜索技能
 
 ```bash
-cd cowork-skills
+# 按关键词搜索
+cowork search tokio
 
-# 添加新插件为 submodule
-git submodule add https://github.com/user/makepad-skills.git plugins/makepad-skills
+# 按 GitHub topic 搜索
+cowork search agent-skill --topic
 
-# 同步符号链接
-./sync-skills.sh
+# 显示详细结果
+cowork search rust-skills --verbose
 ```
 
-## 单独使用插件
-
-每个插件也可以独立使用：
+## 管理插件
 
 ```bash
-claude --plugin-dir /path/to/cowork-skills/plugins/rust-skills
-claude --plugin-dir /path/to/cowork-skills/plugins/makepad-skills
+# 列出插件市场插件
+cowork plugins list
+
+# 显示插件状态
+cowork plugins status
+
+# 卸载插件
+cowork plugins uninstall rust-skills
+
+# 启用/禁用插件
+cowork plugins enable rust-skills
+cowork plugins disable rust-skills
 ```
+
+## 内置技能
+
+运行 `cowork init` 后，以下技能将全局安装：
+
+### memory-skills
+
+基于 CoALA 认知架构的记忆系统，提供三个核心能力：
+
+- **`/remember`** - 保存信息到记忆（自动检测全局/项目范围）
+- **`/recall`** - 搜索和检索记忆中的信息
+- **`/summarize-session`** - 总结当前会话并保存到情景记忆
+
+记忆分为三类：
+- **语义记忆** - 事实、概念、领域知识
+- **情景记忆** - 会话摘要、对话历史
+- **程序记忆** - 工作流程、模式、操作指南
+
+### cowork-guide
+
+完整的 CLI 使用指南，当你提到 `cowork`、`Skills.toml` 或相关命令时自动触发。提供所有 CLI 功能的内联文档。
+
+### cowork-router
+
+统一路由器，根据关键词和上下文自动将问题路由到适当的已安装插件/技能。
+
+### code-review
+
+代码审查助手，通过 `/review-pr` 或 `review PR` 触发。功能包括：
+- 从 GitHub API 获取 PR diff
+- 分析代码变更中的问题
+- 提供带严重级别的结构化反馈
+- 按最佳实践建议改进
+
+### github-generate
+
+从 GitHub 仓库生成技能，通过 `/github-generate` 或 `generate skill from repo` 触发。解析源代码并创建带正确触发器的技能文件。
+
+### github-search
+
+搜索 GitHub 技能仓库，通过 `/github-search` 或 `search for skills` 触发。查找带有 `agent-skill` topic 或匹配关键词的仓库。
+
+### 命令
+
+```bash
+# 列出可用的内置技能
+cowork init --list
+
+# 安装特定的内置技能
+cowork init -s memory-skills -s cowork-guide
+
+# 安装到项目本地
+cowork init --local
+
+# 移除特定技能
+cowork init --remove memory-skills
+```
+
+## 支持的助手
+
+可安装技能到 16+ 编程助手：
+
+| 助手 | 参数 | 助手 | 参数 |
+|------|------|------|------|
+| Claude Code | `-a claude-code` | Amp | `-a amp` |
+| Cursor | `-a cursor` | Antigravity | `-a antigravity` |
+| Codex | `-a codex` | Clawdbot | `-a clawdbot` |
+| GitHub Copilot | `-a github-copilot` | Droid | `-a droid` |
+| Windsurf | `-a windsurf` | Gemini CLI | `-a gemini-cli` |
+| Goose | `-a goose` | Kilo | `-a kilo` |
+| Kiro CLI | `-a kiro-cli` | OpenCode | `-a opencode` |
+| Roo | `-a roo` | Trae | `-a trae` |
+
+```bash
+# 安装到多个助手
+cowork install user/repo -a claude-code -a cursor -a windsurf
+```
+
+## 项目配置 (Skills.toml)
+
+使用 `Skills.toml` 管理项目级技能配置：
+
+```bash
+# 初始化配置（自动检测已安装的 plugins/skills）
+cowork config init
+
+# 跳过自动检测
+cowork config init --no-detect
+
+# 显示当前配置
+cowork config show
+
+# 添加依赖
+cowork config add rust-skills ZhangHanDong/rust-skills
+cowork config add makepad user/makepad-skills --plugin --local
+
+# 安装所有依赖
+cowork config install
+
+# 同步锁定文件与配置
+cowork config sync
+cowork config sync --update  # 同时更新远程仓库
+
+# 启用/禁用技能或分组
+cowork config enable rust-core
+cowork config disable rust-domains
+
+# 设置触发优先级
+cowork config priority dora-router rust-router
+
+# 覆盖特定触发
+cowork config override "async" rust-router
+
+# 生成动态路由
+cowork config router
+cowork config router --hooks    # 带自动触发钩子
+cowork config router --analyze  # 分析触发冲突
+
+# 从配置生成 SKILLS.md
+cowork config apply
+```
+
+详细文档请参考 [Skills.toml 配置指南](./docs/skills-toml-zh.md)。
+
+## 测试技能
+
+测试技能触发是否正常工作：
+
+```bash
+# 生成触发测试报告
+cowork test
+
+# 列出所有触发及其技能
+cowork test triggers
+
+# 检查触发冲突
+cowork test --check-conflicts
+
+# 使用 Claude 运行实际测试
+cowork test --run
+
+# 测试特定技能
+cowork test --filter "rust-*" --run
+
+# 限制每个技能的触发数
+cowork test --run -n 5
+
+# 输出格式
+cowork test -o triggers.json --format json
+cowork test -o triggers.yaml --format yaml
+```
+
+## 安全
+
+CoWork 提供供应链安全功能，防止恶意技能：
+
+### 安全审计
+
+```bash
+# 扫描所有已安装技能的安全问题
+cowork audit
+
+# 扫描特定位置
+cowork audit --global           # 扫描 ~/.claude/skills/
+cowork audit --project          # 扫描 .claude/skills/
+cowork audit --plugins          # 扫描已安装插件
+
+# 详细输出
+cowork audit --verbose
+
+# 保存报告到文件
+cowork audit -o security-report.md --format markdown
+cowork audit -o report.json --format json
+
+# 自动修复问题
+cowork audit --fix
+```
+
+**检测能力：**
+- 危险模式（`rm -rf`、`eval()`、`curl|sh`、`sudo`）
+- 提示注入攻击
+- 凭证泄露（`API_KEY`、`PRIVATE KEY`、`password`）
+- 风险等级：SAFE、LOW、MEDIUM、HIGH、CRITICAL
+
+### 校验和验证
+
+```bash
+# 验证 Skills.lock 中记录的校验和
+cowork verify
+
+# 更新锁定文件中的校验和
+cowork verify --update
+
+# 验证特定技能
+cowork verify rust-skills
+
+# 详细输出
+cowork verify --verbose
+```
+
+### 安全配置
+
+在 `Skills.toml` 中添加：
+
+```toml
+[security]
+# 信任的作者（来自这些来源的技能被信任）
+trusted_authors = ["ZhangHanDong", "anthropics"]
+
+# 自定义阻止模式（正则表达式）
+blocked_patterns = ["dangerous-pattern"]
+
+# 扫描时跳过的路径（glob 模式）
+skip_paths = [
+    "**/docs/**",
+    "**/examples/**",
+    "**/tests/**",
+]
+
+# 信任的市场插件（跳过扫描）
+trusted_marketplaces = ["hookify", "rust-skills"]
+
+# 自动拒绝高风险技能
+auto_reject_high_risk = false
+```
+
+## 存储位置
+
+| 位置 | 用途 |
+|------|------|
+| `~/.cowork/repos/` | 克隆的 GitHub 仓库 |
+| `~/.claude/skills/` | 全局技能目录 |
+| `./skills/` | 项目本地技能 |
+
+## 环境变量
+
+| 变量 | 描述 |
+|------|------|
+| `GITHUB_TOKEN` | generate/search 命令需要 |
 
 ## 许可证
 
-MIT 许可证
+MIT License
 
 ## 链接
 
 - **rust-skills**: https://github.com/ZhangHanDong/rust-skills
-- **Issues**: https://github.com/ZhangHanDong/cowork-skills/issues
+- **Agent Skills 规范**: https://agentskills.io
+- **Skills 市场**: https://skillsmp.com
+- **llms.txt 规范**: https://llmstxt.org

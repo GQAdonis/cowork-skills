@@ -2,140 +2,408 @@
 
 [中文](./README-zh.md) | [日本語](./README-ja.md)
 
-> Integrated Rust development assistant for multiple domains
+> CLI tool for managing Claude Code skills across 16+ AI coding agents
 
+[![Crates.io](https://img.shields.io/crates/v/cowork.svg)](https://crates.io/crates/cowork)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-Plugin-blue)](https://github.com/anthropics/claude-code)
 
+## Agent Support Status
+
+| Agent | Status | Notes |
+|-------|--------|-------|
+| **Claude Code** | Fully Tested | All features verified |
+| Cursor | Community | Contributions welcome |
+| Codex | Community | Contributions welcome |
+| GitHub Copilot | Community | Contributions welcome |
+| Windsurf | Community | Contributions welcome |
+| Goose | Community | Contributions welcome |
+| Amp | Community | Contributions welcome |
+| Roo | Community | Contributions welcome |
+| Kiro CLI | Community | Contributions welcome |
+| Gemini CLI | Community | Contributions welcome |
+| OpenCode | Community | Contributions welcome |
+| Antigravity | Community | Contributions welcome |
+| Clawdbot | Community | Contributions welcome |
+| Droid | Community | Contributions welcome |
+| Kilo | Community | Contributions welcome |
+| Trae | Community | Contributions welcome |
+
+> **Note:** CoWork Skills has been fully tested with Claude Code. Support for other agents is based on documented skill directory conventions. **We need community help to test and contribute support for these agents!** If you use any of these tools, please help us verify compatibility and submit PRs.
+
 ## What is CoWork Skills?
 
-**CoWork Skills** is a parent plugin that integrates multiple Rust domain skills into a unified development experience:
+**CoWork Skills** provides a CLI tool (`cowork` / `co`) for managing skills across multiple coding agents:
 
-- **rust-skills** - Core Rust language knowledge (ownership, concurrency, error handling)
-- **makepad-skills** - Makepad UI framework development
-- **dora-skills** - Dora-rs robotics framework development
+- Install skills from GitHub repositories to 16+ AI agents
+- Generate skills from source code (Rust, TypeScript, Python)
+- Project-level configuration with `Skills.toml`
+- Security auditing and checksum verification
+- Search GitHub for skill repositories
+- Manage Claude Code marketplace plugins
 
-## Architecture
+## Quick Start
 
-```
-cowork-skills/
-├── skills/
-│   ├── cowork-router/     # Master router (native)
-│   ├── rust-router/       # → symlink to plugins/rust-skills/skills/
-│   ├── m01-ownership/     # → symlink to plugins/rust-skills/skills/
-│   └── ...                # All sub-plugin skills via symlinks
-├── plugins/
-│   ├── rust-skills/       # Git submodule - Core Rust
-│   ├── makepad-skills/    # Git submodule - UI
-│   └── dora-skills/       # Git submodule - Robotics
-├── .claude/hooks/         # Unified hooks
-└── sync-skills.sh         # Script to sync symlinks
-```
+### Installation
 
-> **Note**: Claude Code only loads skills from the plugin's root `skills/` directory. We use symlinks to include sub-plugin skills.
-
-## Installation
-
-### Clone with Submodules
+**One-line install (recommended):**
 
 ```bash
-git clone --recurse-submodules https://github.com/ZhangHanDong/cowork-skills.git
+curl -sSL https://raw.githubusercontent.com/ZhangHanDong/cowork-skills/main/install.sh | bash
 ```
 
-### Launch Claude Code
+**Or install manually:**
 
 ```bash
-claude --plugin-dir /path/to/cowork-skills
+# Option 1: From crates.io
+cargo install cowork
+
+# Option 2: From source
+git clone https://github.com/ZhangHanDong/cowork-skills
+cd cowork-skills/cli
+cargo install --path .
+
+# Initialize built-in skills
+cowork init
 ```
 
-### Permission Configuration
-
-Copy the example settings to your project:
+### Install Skills
 
 ```bash
-cp /path/to/cowork-skills/.claude/settings.example.json .claude/settings.local.json
+# Install from GitHub
+cowork install user/repo
+
+# Install specific skills
+cowork install user/repo -s skill1 -s skill2
+
+# Install to specific agents
+cowork install user/repo -a claude-code -a cursor
+
+# Install as plugin (preserves full repo structure)
+cowork install user/repo --plugin
+
+# Install to project local (.claude/skills/)
+cowork install user/repo --local
+
+# Update to latest version
+cowork install user/repo --update
+
+# List installed repositories
+cowork install --list
 ```
 
-## How It Works
+## CLI Commands
 
-```
-User Question
-     │
-     ▼
-┌─────────────────────────────────┐
-│       cowork-router-hook        │
-│  Detect domain from keywords    │
-└─────────────────────────────────┘
-     │
-     ├─────────────┬─────────────┐
-     ▼             ▼             ▼
-┌─────────┐  ┌─────────┐  ┌─────────┐
-│ Makepad │  │  Dora   │  │  Rust   │
-│ Router  │  │ Router  │  │ Router  │
-└─────────┘  └─────────┘  └─────────┘
-     │             │             │
-     └─────────────┴─────────────┘
-                   │
-                   ▼
-         Domain-aware Answer
-```
+| Command | Description |
+|---------|-------------|
+| `cowork init` | Install built-in skills to ~/.claude/skills/ |
+| `cowork install` | Install skills from GitHub or local path |
+| `cowork generate` | Generate skills from a GitHub repository |
+| `cowork search` | Search GitHub for skill repositories |
+| `cowork plugins` | Manage Claude Code marketplace plugins |
+| `cowork config` | Manage project-level skill configuration |
+| `cowork list` | List all available skills |
+| `cowork status` | Show current configuration |
+| `cowork doctor` | Check for configuration issues |
+| `cowork test` | Generate and run trigger tests for skills |
+| `cowork audit` | Security audit of installed skills |
+| `cowork verify` | Verify checksums of installed skills |
 
-## Domain Skills
+Use `co` as a short alias for `cowork`.
 
-| Domain | Plugin | Description |
-|--------|--------|-------------|
-| **Rust Core** | rust-skills | Ownership, concurrency, error handling, meta-cognition framework |
-| **UI Development** | makepad-skills | Makepad widgets, views, live design |
-| **Robotics** | dora-skills | Dora nodes, operators, dataflow |
+## Generate Skills from Source Code
 
-## Cross-Domain Questions
-
-CoWork Skills handles questions that span multiple domains:
-
-```
-User: "How to handle E0382 in Makepad widget?"
-
-CoWork Router:
-├── Primary: Makepad (UI context)
-├── Secondary: E0382 (Rust ownership)
-└── Action: Load both skills, combine knowledge
-```
-
-## Updating Submodules
+Generate skills from any GitHub repository by parsing source code:
 
 ```bash
-cd cowork-skills
+# Generate Rust skills
+cowork generate tokio-rs/tokio --lang rust
 
-# Update all submodules
-git submodule update --remote
+# Generate TypeScript skills
+cowork generate vercel/next.js --lang typescript
 
-# Re-sync skills symlinks after update
-./sync-skills.sh
-
-# Or update specific submodule
-cd plugins/rust-skills && git pull origin main
+# Generate only llms.txt
+cowork generate user/repo --llms-only -o ./output
 ```
 
-## Adding New Sub-Plugins
+### Supported Languages
+
+| Language | Parser | Extracts |
+|----------|--------|----------|
+| Rust | `syn` | pub fn, struct, enum, trait, impl |
+| TypeScript | `tree-sitter` | export function, class, interface, type |
+| Python | `tree-sitter` | def, class (excluding `_` private items) |
+
+## Search for Skills
 
 ```bash
-cd cowork-skills
+# Search by keyword
+cowork search tokio
 
-# Add new plugin as submodule
-git submodule add https://github.com/user/makepad-skills.git plugins/makepad-skills
+# Search by GitHub topic
+cowork search agent-skill --topic
 
-# Sync skills symlinks
-./sync-skills.sh
+# Show detailed results
+cowork search rust-skills --verbose
 ```
 
-## Using Individual Plugins
-
-Each plugin can also be used standalone:
+## Manage Plugins
 
 ```bash
-claude --plugin-dir /path/to/cowork-skills/plugins/rust-skills
-claude --plugin-dir /path/to/cowork-skills/plugins/makepad-skills
+# List marketplace plugins
+cowork plugins list
+
+# Show plugin status
+cowork plugins status
+
+# Uninstall a plugin
+cowork plugins uninstall rust-skills
+
+# Enable/disable plugins
+cowork plugins enable rust-skills
+cowork plugins disable rust-skills
 ```
+
+## Project Configuration (Skills.toml)
+
+Manage project-level skill configuration with `Skills.toml`:
+
+```bash
+# Initialize config (auto-detects installed plugins/skills)
+cowork config init
+
+# Skip auto-detection
+cowork config init --no-detect
+
+# Show current configuration
+cowork config show
+
+# Add dependencies
+cowork config add rust-skills ZhangHanDong/rust-skills
+cowork config add makepad user/makepad-skills --plugin --local
+
+# Install all dependencies
+cowork config install
+
+# Sync lock file with config
+cowork config sync
+cowork config sync --update  # Also git pull remote repos
+
+# Enable/disable skills or groups
+cowork config enable rust-core
+cowork config disable rust-domains
+
+# Set trigger priority
+cowork config priority dora-router rust-router
+
+# Override specific trigger
+cowork config override "async" rust-router
+
+# Generate dynamic router
+cowork config router
+cowork config router --hooks    # With auto-triggering hooks
+cowork config router --analyze  # Analyze trigger conflicts
+
+# Generate SKILLS.md from config
+cowork config apply
+```
+
+See [Skills.toml Configuration Guide](./docs/skills-toml.md) for detailed documentation.
+
+## Testing Skills
+
+Test that skill triggers are working correctly:
+
+```bash
+# Generate trigger test report
+cowork test
+
+# List all triggers with their skills
+cowork test triggers
+
+# Check for trigger conflicts
+cowork test --check-conflicts
+
+# Run actual trigger tests using Claude
+cowork test --run
+
+# Test specific skills
+cowork test --filter "rust-*" --run
+
+# Limit triggers per skill
+cowork test --run -n 5
+
+# Output formats
+cowork test -o triggers.json --format json
+cowork test -o triggers.yaml --format yaml
+```
+
+## Built-in Skills
+
+After running `cowork init`, the following skills are installed globally:
+
+### memory-skills
+
+CoALA cognitive architecture memory system with three core capabilities:
+
+- **`/remember`** - Save information to memory (auto-detects global vs project scope)
+- **`/recall`** - Search and retrieve information from memory
+- **`/summarize-session`** - Summarize current session and save to episodic memory
+
+Memory is organized into:
+- **Semantic Memory** - Facts, concepts, domain knowledge
+- **Episodic Memory** - Session summaries, conversation history
+- **Procedural Memory** - Workflows, patterns, how-to guides
+
+### cowork-guide
+
+Complete CLI usage guide triggered when you mention `cowork`, `Skills.toml`, or related commands. Provides inline documentation for all CLI features.
+
+### cowork-router
+
+Unified router that automatically routes questions to the appropriate installed plugin/skill based on keywords and context.
+
+### code-review
+
+Code review assistant triggered by `/review-pr` or `review PR`. Features:
+- Fetches PR diff from GitHub API
+- Analyzes code changes for issues
+- Provides structured feedback with severity levels
+- Suggests improvements following best practices
+
+### github-generate
+
+Generate skills from GitHub repositories triggered by `/github-generate` or `generate skill from repo`. Parses source code and creates skill files with proper triggers.
+
+### github-search
+
+Search GitHub for skill repositories triggered by `/github-search` or `search for skills`. Finds repositories with `agent-skill` topic or matching keywords.
+
+### Commands
+
+```bash
+# List available built-in skills
+cowork init --list
+
+# Install specific built-in skills
+cowork init -s memory-skills -s cowork-guide
+
+# Install to project local
+cowork init --local
+
+# Remove specific skills
+cowork init --remove memory-skills
+```
+
+## Supported Agents
+
+Install skills to 16+ coding agents:
+
+| Agent | Flag | Agent | Flag |
+|-------|------|-------|------|
+| Claude Code | `-a claude-code` | Amp | `-a amp` |
+| Cursor | `-a cursor` | Antigravity | `-a antigravity` |
+| Codex | `-a codex` | Clawdbot | `-a clawdbot` |
+| GitHub Copilot | `-a github-copilot` | Droid | `-a droid` |
+| Windsurf | `-a windsurf` | Gemini CLI | `-a gemini-cli` |
+| Goose | `-a goose` | Kilo | `-a kilo` |
+| Kiro CLI | `-a kiro-cli` | OpenCode | `-a opencode` |
+| Roo | `-a roo` | Trae | `-a trae` |
+
+```bash
+# Install to multiple agents
+cowork install user/repo -a claude-code -a cursor -a windsurf
+```
+
+## Security
+
+CoWork provides supply chain security features to protect against malicious skills:
+
+### Security Audit
+
+```bash
+# Scan all installed skills for security issues
+cowork audit
+
+# Scan specific locations
+cowork audit --global           # Scan ~/.claude/skills/
+cowork audit --project          # Scan .claude/skills/
+cowork audit --plugins          # Scan installed plugins
+
+# Verbose output with details
+cowork audit --verbose
+
+# Save report to file
+cowork audit -o security-report.md --format markdown
+cowork audit -o report.json --format json
+
+# Auto-fix issues where possible
+cowork audit --fix
+```
+
+**Detection capabilities:**
+- Dangerous patterns (`rm -rf`, `eval()`, `curl|sh`, `sudo`)
+- Prompt injection attempts
+- Credential leaks (`API_KEY`, `PRIVATE KEY`, `password`)
+- Suspicious system access
+- Risk levels: SAFE, LOW, MEDIUM, HIGH, CRITICAL
+
+### Checksum Verification
+
+```bash
+# Verify skills against recorded checksums in Skills.lock
+cowork verify
+
+# Update checksums in lockfile
+cowork verify --update
+
+# Verify specific skill
+cowork verify rust-skills
+
+# Verbose output
+cowork verify --verbose
+```
+
+### Security Configuration
+
+Add to `Skills.toml`:
+
+```toml
+[security]
+# Trusted authors (skills from these sources are trusted)
+trusted_authors = ["ZhangHanDong", "anthropics"]
+
+# Custom blocked patterns (regex)
+blocked_patterns = ["dangerous-pattern"]
+
+# Paths to skip during scanning (glob patterns)
+# Use for documentation files that describe security patterns
+skip_paths = [
+    "**/docs/**",
+    "**/examples/**",
+    "**/tests/**",
+]
+
+# Trusted marketplace plugins (skip scanning)
+trusted_marketplaces = ["hookify", "rust-skills"]
+
+# Auto-reject high risk skills
+auto_reject_high_risk = false
+```
+
+## Storage Locations
+
+| Location | Purpose |
+|----------|---------|
+| `~/.cowork/repos/` | Cloned GitHub repositories |
+| `~/.claude/skills/` | Global skills directory |
+| `./skills/` | Project-local skills |
+
+## Environment Variables
+
+| Variable | Description |
+|----------|-------------|
+| `GITHUB_TOKEN` | Required for generate/search commands |
 
 ## License
 
@@ -144,4 +412,6 @@ MIT License
 ## Links
 
 - **rust-skills**: https://github.com/ZhangHanDong/rust-skills
-- **Issues**: https://github.com/ZhangHanDong/cowork-skills/issues
+- **Agent Skills Specification**: https://agentskills.io
+- **Skills Marketplace**: https://skillsmp.com
+- **llms.txt Specification**: https://llmstxt.org
