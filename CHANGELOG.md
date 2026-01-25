@@ -25,17 +25,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `cowork audit` - Security audit of installed skills
   - `cowork verify` - Verify checksums against `Skills.lock`
 
-- **Built-in Skills**
-  - `memory-skills` - CoALA cognitive architecture memory system
-  - `cowork-guide` - Complete CLI usage guide
+- **Built-in Skills** (embedded at compile time)
+  - `best-skill-creator` - SKILL.md template and best practices for skill creation
+  - `code-review` - GitHub PR review integration with best practices
+  - `cowork-guide` - Complete CLI usage guide and documentation
   - `cowork-router` - Unified router for installed plugins/skills
-  - `code-review` - Code review assistant with best practices
   - `github-generate` - Generate skills from GitHub repositories
-  - `github-search` - Search GitHub for skill repositories
+  - `github-search` - Search GitHub for skill repositories by topic
+  - `memory-skills` - CoALA cognitive architecture memory system
+  - `recall` - Search and retrieve information from memory
+  - `remember` - Save information to memory filesystem
+  - `summarize-session` - Summarize session and save to episodic memory
+  - `remotion` - Video creation in React best practices
+  - `writing-assistant` - Writing assistance, text polishing, grammar checking
 
 - **Multi-Agent Support**
   - Install skills to 16+ AI coding agents
-  - Supported: Claude Code, Cursor, Codex, GitHub Copilot, Windsurf, Goose, Amp, Roo, Kiro CLI, Gemini CLI, and more
+  - Fully tested: Claude Code
+  - Community testing: Cursor, Codex, GitHub Copilot, Windsurf, Goose, Amp, Roo, Kiro CLI, Gemini CLI, and more
 
 - **Source Code Parsing**
   - Rust parser using `syn` crate
@@ -59,6 +66,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Documentation**
   - Trilingual README (English, Chinese, Japanese)
   - Comprehensive CLI usage guide
+  - crates.io version badge
+
+### Technical
+
+- Skills embedded at compile time using `include_str!` macro
+- `Skills.toml` configuration format (replaces legacy `cowork-config.json`)
+- `Skills.lock` for reproducible installations with checksum verification
+- Cargo.toml `include` configuration for crates.io publishing
 
 [Unreleased]: https://github.com/ZhangHanDong/cowork-skills/compare/v0.1.0...HEAD
 [0.1.0]: https://github.com/ZhangHanDong/cowork-skills/releases/tag/v0.1.0
