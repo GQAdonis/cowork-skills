@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.5] - 2025-01-26
+
+### Improved
+
+- Skill generation quality significantly improved
+  - Extract description from README.md, Cargo.toml, or package.json
+  - Smart truncation avoids cutting in the middle of markdown links
+  - API table entries now have fallback descriptions derived from signatures
+  - Modules section no longer shows empty "root" entries
+  - Quick Start placeholder with correct language syntax highlighting
+
+### Fixed
+
+- Description field in SKILL.md frontmatter no longer contains raw trigger list
+- Empty module documentation is replaced with content-based summary
+
 ## [0.1.4] - 2025-01-26
 
 ### Added
@@ -114,7 +130,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Skills.lock` for reproducible installations with checksum verification
 - Cargo.toml `include` configuration for crates.io publishing
 
-[Unreleased]: https://github.com/ZhangHanDong/cowork-skills/compare/v0.1.4...HEAD
+[Unreleased]: https://github.com/ZhangHanDong/cowork-skills/compare/v0.1.5...HEAD
+[0.1.5]: https://github.com/ZhangHanDong/cowork-skills/compare/v0.1.4...v0.1.5
 [0.1.4]: https://github.com/ZhangHanDong/cowork-skills/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/ZhangHanDong/cowork-skills/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/ZhangHanDong/cowork-skills/compare/v0.1.1...v0.1.2

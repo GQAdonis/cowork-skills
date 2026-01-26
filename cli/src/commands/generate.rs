@@ -442,8 +442,11 @@ async fn generate_from_local(local_path: &Path, options: &GenerateOptions) -> Re
         "→".blue()
     );
 
+    // Try to extract a meaningful description from the project
+    let description = extract_project_description(&local_path, project_name);
+
     let generator = LlmsTxtGenerator::new(project_name, &format!("file://{}", local_path.display()))
-        .with_description(&format!("Generated from local directory: {}", local_path.display()));
+        .with_description(&description);
 
     let llms = generator.generate(&parse_results);
     let llms_content = llms.to_markdown();
@@ -581,6 +584,179 @@ fn extract_title(content: &str) -> Option<String> {
         let line = line.trim();
         if line.starts_with("# ") {
             return Some(line[2..].trim().to_string());
+        }
+    }
+    None
+}
+
+/// Extract project description from README.md or package manifest.
+fn extract_project_description(project_path: &Path, project_name: &str) -> String {
+    // Try README.md first
+    for readme_name in &["README.md", "readme.md", "README", "readme.txt"] {
+        let readme_path = project_path.join(readme_name);
+        if readme_path.exists() {
+            if let Ok(content) = std::fs::read_to_string(&readme_path) {
+                if let Some(desc) = extract_description_from_readme(&content) {
+                    return desc;
+                }
+            }
+        }
+    }
+
+    // Try Cargo.toml
+    let cargo_path = project_path.join("Cargo.toml");
+    if cargo_path.exists() {
+        if let Ok(content) = std::fs::read_to_string(&cargo_path) {
+            if let Some(desc) = extract_description_from_cargo(&content) {
+                return desc;
+            }
+        }
+    }
+
+    // Try package.json
+    let package_json = project_path.join("package.json");
+    if package_json.exists() {
+        if let Ok(content) = std::fs::read_to_string(&package_json) {
+            if let Some(desc) = extract_description_from_package_json(&content) {
+                return desc;
+            }
+        }
+    }
+
+    // Try Package.swift
+    let package_swift = project_path.join("Package.swift");
+    if package_swift.exists() {
+        // Swift packages don't typically have descriptions in Package.swift
+        // Use a reasonable default
+        return format!("{} Swift package", project_name);
+    }
+
+    // Default fallback
+    format!("{} API reference and usage guide", project_name)
+}
+
+/// Extract description from README content.
+fn extract_description_from_readme(content: &str) -> Option<String> {
+    let lines: Vec<&str> = content.lines().collect();
+
+    // Skip the title (first # line) and look for the first meaningful paragraph
+    let mut found_title = false;
+    let mut description_lines = Vec::new();
+
+    for line in lines {
+        let trimmed = line.trim();
+
+        // Skip empty lines at the start
+        if trimmed.is_empty() && !found_title {
+            continue;
+        }
+
+        // Found the title
+        if trimmed.starts_with("# ") && !found_title {
+            found_title = true;
+            continue;
+        }
+
+        // Skip badges and images
+        if trimmed.starts_with("[![") || trimmed.starts_with("![") {
+            continue;
+        }
+
+        // Skip empty lines between title and description
+        if trimmed.is_empty() && found_title && description_lines.is_empty() {
+            continue;
+        }
+
+        // Stop at headers or empty lines after we have content
+        if (trimmed.starts_with('#') || trimmed.is_empty()) && !description_lines.is_empty() {
+            break;
+        }
+
+        // Collect description lines
+        if found_title && !trimmed.is_empty() {
+            description_lines.push(trimmed);
+            // Limit to first sentence or 150 chars
+            let current = description_lines.join(" ");
+            if current.len() > 150 || current.contains(". ") {
+                break;
+            }
+        }
+    }
+
+    if description_lines.is_empty() {
+        return None;
+    }
+
+    let desc = description_lines.join(" ");
+    // Take first sentence, max 150 chars
+    let first_sentence = desc.split(". ").next().unwrap_or(&desc);
+
+    // Smart truncation: don't cut in the middle of markdown links
+    let result = if first_sentence.len() > 150 {
+        // Try to find a good break point before 150 chars
+        let truncated = &first_sentence[..150];
+        // Check if we're in the middle of a markdown link
+        let last_open_bracket = truncated.rfind('[');
+        let last_close_bracket = truncated.rfind(']');
+
+        let break_point = if let (Some(open), close) = (last_open_bracket, last_close_bracket) {
+            // If we have an unclosed bracket, truncate before it
+            if close.map_or(true, |c| c < open) {
+                open
+            } else {
+                150
+            }
+        } else {
+            150
+        };
+
+        // Find word boundary
+        let final_break = first_sentence[..break_point]
+            .rfind(' ')
+            .unwrap_or(break_point);
+
+        format!("{}...", &first_sentence[..final_break].trim())
+    } else {
+        first_sentence.to_string()
+    };
+
+    Some(result)
+}
+
+/// Extract description from Cargo.toml.
+fn extract_description_from_cargo(content: &str) -> Option<String> {
+    for line in content.lines() {
+        let line = line.trim();
+        if line.starts_with("description") {
+            // Parse: description = "..."
+            if let Some(start) = line.find('"') {
+                if let Some(end) = line.rfind('"') {
+                    if end > start {
+                        return Some(line[start + 1..end].to_string());
+                    }
+                }
+            }
+        }
+    }
+    None
+}
+
+/// Extract description from package.json.
+fn extract_description_from_package_json(content: &str) -> Option<String> {
+    // Simple extraction without full JSON parsing
+    for line in content.lines() {
+        let line = line.trim();
+        if line.starts_with("\"description\"") {
+            // Parse: "description": "..."
+            if let Some(colon_pos) = line.find(':') {
+                let value_part = line[colon_pos + 1..].trim();
+                if let Some(start) = value_part.find('"') {
+                    let rest = &value_part[start + 1..];
+                    if let Some(end) = rest.find('"') {
+                        return Some(rest[..end].to_string());
+                    }
+                }
+            }
         }
     }
     None

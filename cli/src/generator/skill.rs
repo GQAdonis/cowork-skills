@@ -95,16 +95,20 @@ impl SkillGenerator {
 
         // Collect all keywords for triggers
         let keywords = self.collect_keywords(llms);
-        let triggers = Templates::skill_triggers(&keywords);
 
-        // Build description
-        let description = format!(
-            "{}. {}",
-            llms.description,
-            triggers
-        )
-        .trim()
-        .to_string();
+        // Build concise description (without triggers)
+        let description = if llms.description.is_empty() {
+            format!("{} API reference and usage guide", llms.title)
+        } else {
+            // Take first sentence only, max 120 chars
+            let first_sentence = llms.description
+                .split(". ")
+                .next()
+                .unwrap_or(&llms.description)
+                .trim()
+                .trim_end_matches('.');
+            smart_truncate(first_sentence, 120)
+        };
 
         // Build overview
         let overview = self.build_overview(llms);
@@ -124,7 +128,14 @@ impl SkillGenerator {
         let patterns = self.build_patterns(llms);
 
         // Assemble content
-        let mut content = Templates::skill_header(&name, &description, &llms.title, &overview);
+        let mut content = Templates::skill_header(
+            &name,
+            &description,
+            &llms.title,
+            &overview,
+            &keywords,
+            llms.language.as_str(),
+        );
         content.push_str(&api_section);
 
         if !patterns.is_empty() {
@@ -163,16 +174,18 @@ impl SkillGenerator {
 
         // Collect keywords from this module
         let keywords = module.get_keywords();
-        let triggers = Templates::skill_triggers(&keywords);
 
         let title = format!("{} - {}", llms.title, module.name);
-        let description = format!(
-            "{}. {}",
-            module.doc_comment.as_deref().unwrap_or(&title),
-            triggers
-        )
-        .trim()
-        .to_string();
+
+        // Build concise description
+        let description = module
+            .doc_comment
+            .as_ref()
+            .map(|d| {
+                let first = d.split(". ").next().unwrap_or(d).trim().trim_end_matches('.');
+                smart_truncate(first, 120)
+            })
+            .unwrap_or_else(|| format!("{} module reference", module.name));
 
         // Build overview from module doc
         let overview = module
@@ -192,7 +205,14 @@ impl SkillGenerator {
         };
 
         // Assemble content
-        let mut content = Templates::skill_header(&name, &description, &title, &overview);
+        let mut content = Templates::skill_header(
+            &name,
+            &description,
+            &title,
+            &overview,
+            &keywords,
+            llms.language.as_str(),
+        );
         content.push_str(&api_section);
 
         // Add detailed API documentation
@@ -233,21 +253,55 @@ impl SkillGenerator {
     fn build_overview(&self, llms: &LlmsTxt) -> String {
         let mut overview = llms.description.clone();
 
-        if !llms.modules.is_empty() {
+        // Only show modules section if there are meaningful modules (not just "root")
+        let meaningful_modules: Vec<_> = llms
+            .modules
+            .iter()
+            .filter(|m| m.name != "root" || m.doc_comment.is_some())
+            .collect();
+
+        if !meaningful_modules.is_empty() {
             overview.push_str("\n\n## Modules\n\n");
-            for module in &llms.modules {
+            for module in meaningful_modules {
                 let doc = module
                     .doc_comment
                     .as_deref()
-                    .unwrap_or("")
-                    .lines()
-                    .next()
-                    .unwrap_or("");
+                    .and_then(|d| {
+                        let first_line = d.lines().next().unwrap_or("");
+                        if first_line.is_empty() { None } else { Some(first_line) }
+                    })
+                    .unwrap_or_else(|| {
+                        // Generate description based on module contents
+                        self.summarize_module(module)
+                    });
                 overview.push_str(&format!("- **{}**: {}\n", module.name, doc));
             }
         }
 
         overview
+    }
+
+    /// Generate a summary for a module based on its contents.
+    fn summarize_module(&self, module: &LlmsModule) -> &'static str {
+        let type_count = module.types.len();
+        let func_count = module.functions.len();
+        let trait_count = module.traits.len();
+
+        if type_count > 0 && func_count > 0 && trait_count > 0 {
+            "Types, functions, and protocols"
+        } else if type_count > 0 && func_count > 0 {
+            "Core types and functions"
+        } else if type_count > 0 && trait_count > 0 {
+            "Types and protocols"
+        } else if type_count > 5 {
+            "Type definitions"
+        } else if func_count > 5 {
+            "Utility functions"
+        } else if trait_count > 0 {
+            "Protocol definitions"
+        } else {
+            "Core module"
+        }
     }
 
     /// Build API entries for table.
@@ -313,6 +367,33 @@ impl SkillGenerator {
 
         patterns
     }
+}
+
+/// Smart truncation that avoids cutting in the middle of markdown links.
+fn smart_truncate(s: &str, max_len: usize) -> String {
+    if s.len() <= max_len {
+        return s.to_string();
+    }
+
+    let truncated = &s[..max_len];
+
+    // Check if we're in the middle of a markdown link [text](url)
+    let last_open_bracket = truncated.rfind('[');
+    let last_close_bracket = truncated.rfind(']');
+    let last_open_paren = truncated.rfind('(');
+
+    let break_point = match (last_open_bracket, last_close_bracket, last_open_paren) {
+        // In the middle of [text] part
+        (Some(open), close, _) if close.map_or(true, |c| c < open) => open,
+        // In the middle of (url) part after ]
+        (_, Some(close), Some(paren)) if paren > close => close + 1,
+        _ => max_len,
+    };
+
+    // Find word boundary
+    let final_break = s[..break_point].rfind(' ').unwrap_or(break_point);
+
+    format!("{}...", s[..final_break].trim())
 }
 
 /// Convert a string to a URL-safe slug.

@@ -61,13 +61,20 @@ impl Templates {
     pub const SKILL_HEADER: &'static str = r#"---
 name: {name}
 description: "{description}"
+triggers: [{triggers}]
 ---
 
 # {title}
 
+## Overview
+
 {overview}
 
----
+## Quick Start
+
+```{language}
+// TODO: Add basic usage example
+```
 
 "#;
 
@@ -154,29 +161,27 @@ description: "{description}"
     }
 
     /// Generate filled SKILL.md header.
-    pub fn skill_header(name: &str, description: &str, title: &str, overview: &str) -> String {
+    pub fn skill_header(
+        name: &str,
+        description: &str,
+        title: &str,
+        overview: &str,
+        triggers: &[String],
+        language: &str,
+    ) -> String {
+        let triggers_str = triggers
+            .iter()
+            .map(|t| format!("\"{t}\""))
+            .collect::<Vec<_>>()
+            .join(", ");
+
         Self::SKILL_HEADER
             .replace("{name}", name)
             .replace("{description}", description)
             .replace("{title}", title)
             .replace("{overview}", overview)
-    }
-
-    /// Generate skill triggers string from keywords.
-    pub fn skill_triggers(keywords: &[String]) -> String {
-        if keywords.is_empty() {
-            return String::new();
-        }
-
-        // Format triggers for description field
-        let triggers = keywords
-            .iter()
-            .take(20) // Limit to first 20 keywords
-            .cloned()
-            .collect::<Vec<_>>()
-            .join(", ");
-
-        format!("Triggers on: {triggers}")
+            .replace("{triggers}", &triggers_str)
+            .replace("{language}", language)
     }
 
     /// Generate API table for SKILL.md.
@@ -189,17 +194,62 @@ description: "{description}"
 
         let mut output = String::from("| Name | Description |\n|------|-------------|\n");
 
-        for (name, _, description) in entries {
-            let desc = description
-                .lines()
-                .next()
-                .unwrap_or("")
-                .chars()
-                .take(60)
-                .collect::<String>();
+        for (name, signature, description) in entries {
+            // Use description if available, otherwise derive from signature
+            let desc = if description.trim().is_empty() {
+                // Try to derive description from signature
+                derive_description_from_signature(name, signature)
+            } else {
+                description
+                    .lines()
+                    .next()
+                    .unwrap_or("")
+                    .chars()
+                    .take(60)
+                    .collect::<String>()
+            };
             output.push_str(&format!("| `{name}` | {desc} |\n"));
         }
 
         output
+    }
+}
+
+/// Derive a basic description from signature when doc comment is missing.
+fn derive_description_from_signature(name: &str, signature: &str) -> String {
+    // Check common patterns
+    if signature.contains("class ") {
+        format!("{name} class")
+    } else if signature.contains("struct ") {
+        format!("{name} struct")
+    } else if signature.contains("enum ") {
+        format!("{name} enum")
+    } else if signature.contains("protocol ") {
+        format!("{name} protocol")
+    } else if signature.contains("func ") || signature.contains("fn ") {
+        // Try to extract return type for functions
+        if signature.contains("->") {
+            let return_type = signature
+                .split("->")
+                .last()
+                .map(|s| s.trim().trim_end_matches('{').trim())
+                .unwrap_or("");
+            if !return_type.is_empty() && return_type != "Void" && return_type != "()" {
+                format!("Returns {return_type}")
+            } else {
+                format!("{name} function")
+            }
+        } else {
+            format!("{name} function")
+        }
+    } else if signature.contains("init") {
+        "Initializer".to_string()
+    } else if signature.contains("trait ") {
+        format!("{name} trait")
+    } else if signature.contains("interface ") {
+        format!("{name} interface")
+    } else {
+        // Default: just use the name
+        name.to_string()
     }
 }
