@@ -352,11 +352,19 @@ fn install_from_local_path(
         }
     }
 
+    // Check if this is a single skill (has SKILL.md directly)
+    let is_single_skill = local_path.join("SKILL.md").exists();
+
+    if is_single_skill {
+        // Install single skill directly
+        return install_single_skill(local_path, &name, target_agents, options);
+    }
+
     // Skills mode - check for skills directory
     let skills_dir = local_path.join("skills");
     if !skills_dir.exists() {
         bail!(
-            "No skills/ directory found in {}. Not a valid skills project.",
+            "No skills/ directory or SKILL.md found in {}. Not a valid skills project or skill.",
             local_path.display()
         );
     }
@@ -402,6 +410,83 @@ fn install_from_local_path(
         target_agents.len()
     );
 
+    Ok(())
+}
+
+/// Install a single skill directory (contains SKILL.md)
+fn install_single_skill(
+    skill_path: &Path,
+    name: &str,
+    target_agents: &[&str],
+    options: &InstallOptions,
+) -> Result<()> {
+    println!(
+        "  {} Detected single skill: {}",
+        "✓".green(),
+        name.cyan()
+    );
+
+    let agents = get_all_agents();
+
+    if options.local {
+        // Install to project local
+        let project_root = std::env::current_dir()?;
+        let target_dir = project_root.join(".claude").join("skills").join(name);
+        fs::create_dir_all(&target_dir)?;
+
+        // Copy skill contents
+        copy_dir_contents(skill_path, &target_dir)?;
+
+        println!(
+            "\n{} Installed {} to .claude/skills/{}",
+            "✓".green(),
+            name.cyan(),
+            name
+        );
+    } else {
+        // Install to all target agents
+        for agent_name in target_agents {
+            if let Some(agent) = agents.get(agent_name) {
+                println!("\n  {} Installing to {}...", "→".blue(), agent.display_name);
+
+                let target_dir = agent.global_skills_dir.join(name);
+                fs::create_dir_all(&target_dir)?;
+
+                // Copy skill contents
+                copy_dir_contents(skill_path, &target_dir)?;
+
+                println!("    {} Installed: {}", "✓".green(), name);
+            }
+        }
+
+        println!(
+            "\n{} {} installed to {} agent(s)",
+            "✓".green(),
+            name.cyan(),
+            target_agents.len()
+        );
+    }
+
+    Ok(())
+}
+
+/// Copy directory contents recursively
+fn copy_dir_contents(src: &Path, dst: &Path) -> Result<()> {
+    for entry in WalkDir::new(src).min_depth(1) {
+        let entry = entry?;
+        let src_path = entry.path();
+        let relative = src_path.strip_prefix(src)?;
+        let dst_path = dst.join(relative);
+
+        if entry.file_type().is_dir() {
+            fs::create_dir_all(&dst_path)?;
+        } else {
+            if let Some(parent) = dst_path.parent() {
+                fs::create_dir_all(parent)?;
+            }
+            fs::copy(src_path, &dst_path)?;
+        }
+    }
     Ok(())
 }
 
