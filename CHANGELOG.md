@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.2] - 2025-01-26
+
+### Added
+
+- `cowork generate --path` - Generate skills from local directory
+  - Supports Rust, TypeScript, Python source files
+  - Auto-skips hidden directories, node_modules, target, etc.
+  - Progress indicator for large codebases
+
+### Fixed
+
+- Fixed repository URL in Cargo.toml metadata
+
+## [0.1.1] - 2025-01-26
+
+### Added
+
+- README.md for crates.io display
+- Homepage and readme fields in Cargo.toml
+
 ## [0.1.0] - 2025-01-26
 
 ### Added
@@ -75,5 +95,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Skills.lock` for reproducible installations with checksum verification
 - Cargo.toml `include` configuration for crates.io publishing
 
-[Unreleased]: https://github.com/ZhangHanDong/cowork-skills/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/ZhangHanDong/cowork-skills/compare/v0.1.2...HEAD
+[0.1.2]: https://github.com/ZhangHanDong/cowork-skills/compare/v0.1.1...v0.1.2
+[0.1.1]: https://github.com/ZhangHanDong/cowork-skills/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/ZhangHanDong/cowork-skills/releases/tag/v0.1.0

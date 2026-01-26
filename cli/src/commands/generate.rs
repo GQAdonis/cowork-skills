@@ -1,9 +1,10 @@
-//! `cowork generate` command - Generate skills from GitHub repositories.
+//! `cowork generate` command - Generate skills from GitHub repositories or local directories.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
 use colored::Colorize;
+use walkdir::WalkDir;
 
 use crate::generator::{LlmsTxtGenerator, SkillGenerator};
 use crate::github::{GitHubClient, Repository};
@@ -12,6 +13,7 @@ use crate::parser::{Language, ParseResult, parse_file};
 /// Options for the generate command.
 pub struct GenerateOptions {
     pub repo: Option<String>,
+    pub local_path: Option<PathBuf>,
     pub from_llms: Option<PathBuf>,
     pub languages: Vec<String>,
     pub output: Option<PathBuf>,
@@ -30,11 +32,14 @@ pub fn execute(options: GenerateOptions) -> Result<()> {
         if let Some(ref llms_path) = options.from_llms {
             // Generate skills from existing llms.txt
             generate_from_llms(llms_path, &options).await
+        } else if let Some(ref local_path) = options.local_path {
+            // Generate from local directory
+            generate_from_local(local_path, &options).await
         } else if let Some(ref repo_str) = options.repo {
             // Generate from GitHub repository
             generate_from_github(repo_str, &options).await
         } else {
-            anyhow::bail!("Either a repository or --from-llms must be specified")
+            anyhow::bail!("Either a repository, --path, or --from-llms must be specified")
         }
     })
 }
@@ -258,6 +263,251 @@ async fn generate_from_github(repo_str: &str, options: &GenerateOptions) -> Resu
         );
 
         // TODO: Integrate with existing install command
+        println!(
+            "  {} Use 'cowork install' to install generated skills to agents",
+            "ℹ".blue()
+        );
+    }
+
+    Ok(())
+}
+
+/// Generate skills from a local directory.
+async fn generate_from_local(local_path: &Path, options: &GenerateOptions) -> Result<()> {
+    let local_path = local_path.canonicalize()
+        .context("Failed to resolve local path")?;
+
+    if !local_path.exists() {
+        anyhow::bail!("Directory does not exist: {}", local_path.display());
+    }
+
+    if !local_path.is_dir() {
+        anyhow::bail!("Path is not a directory: {}", local_path.display());
+    }
+
+    let project_name = local_path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("project");
+
+    println!(
+        "{} Scanning local directory: {}",
+        "→".blue(),
+        local_path.display()
+    );
+
+    // Determine languages to parse
+    let target_languages: Vec<Language> = if options.languages.is_empty() {
+        // Auto-detect: scan for common file extensions
+        vec![Language::Rust, Language::TypeScript, Language::Python]
+    } else {
+        options
+            .languages
+            .iter()
+            .filter_map(|s| match s.to_lowercase().as_str() {
+                "rust" | "rs" => Some(Language::Rust),
+                "typescript" | "ts" => Some(Language::TypeScript),
+                "python" | "py" => Some(Language::Python),
+                _ => None,
+            })
+            .collect()
+    };
+
+    println!(
+        "{} Scanning for {} files...",
+        "→".blue(),
+        target_languages
+            .iter()
+            .map(|l| l.as_str())
+            .collect::<Vec<_>>()
+            .join(", ")
+    );
+
+    // Collect all source files
+    let mut source_files: Vec<PathBuf> = Vec::new();
+
+    for entry in WalkDir::new(&local_path)
+        .follow_links(true)
+        .into_iter()
+        .filter_entry(|e| {
+            // Skip hidden directories and common non-source directories
+            let name = e.file_name().to_string_lossy();
+            !name.starts_with('.')
+                && name != "target"
+                && name != "node_modules"
+                && name != "__pycache__"
+                && name != "venv"
+                && name != ".venv"
+                && name != "build"
+                && name != "dist"
+        })
+    {
+        let entry = entry?;
+        if entry.file_type().is_file() {
+            let path = entry.path();
+            if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
+                if target_languages.iter().any(|lang| lang.file_extensions().contains(&ext)) {
+                    source_files.push(path.to_path_buf());
+                }
+            }
+        }
+    }
+
+    println!(
+        "{} Found {} source files",
+        "✓".green(),
+        source_files.len()
+    );
+
+    if source_files.is_empty() {
+        println!("{} No source files found for the specified languages", "⚠".yellow());
+        return Ok(());
+    }
+
+    // Parse source files
+    println!(
+        "{} Parsing source files...",
+        "→".blue()
+    );
+
+    let mut parse_results: Vec<ParseResult> = Vec::new();
+    let mut parsed_count = 0;
+    let mut error_count = 0;
+
+    for file_path in &source_files {
+        match std::fs::read_to_string(file_path) {
+            Ok(content) => {
+                let relative_path = file_path
+                    .strip_prefix(&local_path)
+                    .unwrap_or(file_path)
+                    .to_string_lossy()
+                    .to_string();
+
+                match parse_file(&content, &relative_path) {
+                    Ok(result) => {
+                        if !result.items.is_empty() {
+                            parsed_count += 1;
+                            parse_results.push(result);
+                        }
+                    }
+                    Err(e) => {
+                        error_count += 1;
+                        if error_count <= 5 {
+                            eprintln!(
+                                "  {} Failed to parse {}: {}",
+                                "⚠".yellow(),
+                                relative_path,
+                                e
+                            );
+                        }
+                    }
+                }
+            }
+            Err(e) => {
+                error_count += 1;
+                if error_count <= 5 {
+                    eprintln!(
+                        "  {} Failed to read {}: {}",
+                        "⚠".yellow(),
+                        file_path.display(),
+                        e
+                    );
+                }
+            }
+        }
+
+        // Progress indicator
+        if (parsed_count + error_count) % 50 == 0 {
+            print!("\r  {} files processed...", parsed_count + error_count);
+        }
+    }
+
+    if error_count > 5 {
+        eprintln!("  {} ... and {} more errors", "⚠".yellow(), error_count - 5);
+    }
+
+    println!(
+        "\n{} Parsed {} files ({} errors)",
+        "✓".green(),
+        parsed_count,
+        error_count
+    );
+
+    // Generate llms.txt
+    println!(
+        "{} Generating llms.txt...",
+        "→".blue()
+    );
+
+    let generator = LlmsTxtGenerator::new(project_name, &format!("file://{}", local_path.display()))
+        .with_description(&format!("Generated from local directory: {}", local_path.display()));
+
+    let llms = generator.generate(&parse_results);
+    let llms_content = llms.to_markdown();
+
+    // Determine output directory
+    let output_dir = options
+        .output
+        .clone()
+        .unwrap_or_else(|| PathBuf::from("./generated"));
+
+    std::fs::create_dir_all(&output_dir)?;
+
+    // Write llms.txt
+    let llms_path = output_dir.join("llms.txt");
+    std::fs::write(&llms_path, &llms_content)?;
+
+    println!(
+        "{} Generated {}",
+        "✓".green(),
+        llms_path.display()
+    );
+
+    if options.llms_only {
+        println!(
+            "\n{} Done! llms.txt generated at {}",
+            "✓".green().bold(),
+            llms_path.display()
+        );
+        return Ok(());
+    }
+
+    // Generate skills
+    println!(
+        "{} Generating skills...",
+        "→".blue()
+    );
+
+    let skill_generator = SkillGenerator::new().with_split_modules(options.split_modules);
+    let skills = skill_generator.generate(&llms);
+
+    let skills_dir = output_dir.join("skills");
+    std::fs::create_dir_all(&skills_dir)?;
+
+    for skill in &skills {
+        skill.write_to_dir(&skills_dir)?;
+        println!(
+            "  {} Created skill: {}",
+            "✓".green(),
+            skill.name.cyan()
+        );
+    }
+
+    println!(
+        "\n{} Done! Generated {} skills at {}",
+        "✓".green().bold(),
+        skills.len(),
+        skills_dir.display()
+    );
+
+    // Install to agents if specified
+    if !options.agents.is_empty() {
+        println!(
+            "\n{} Installing skills to agents: {}",
+            "→".blue(),
+            options.agents.join(", ")
+        );
+
         println!(
             "  {} Use 'cowork install' to install generated skills to agents",
             "ℹ".blue()

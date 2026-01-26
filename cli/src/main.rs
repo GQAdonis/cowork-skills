@@ -208,10 +208,11 @@ enum Commands {
         local: bool,
     },
 
-    /// Generate skills from a GitHub repository
+    /// Generate skills from a GitHub repository or local directory
     ///
     /// Examples:
     ///   cowork generate user/repo                   # Generate from GitHub repo
+    ///   cowork generate --path ./my-project        # Generate from local directory
     ///   cowork generate user/repo --lang rust      # Specify language(s)
     ///   cowork generate user/repo --llms-only      # Only generate llms.txt
     ///   cowork generate --from-llms ./llms.txt     # Generate from existing llms.txt
@@ -220,6 +221,10 @@ enum Commands {
     Generate {
         /// GitHub repository (user/repo) or full URL
         repo: Option<String>,
+
+        /// Generate from local directory path
+        #[arg(long = "path", short = 'p', value_name = "DIR")]
+        local_path: Option<PathBuf>,
 
         /// Generate skills from existing llms.txt file
         #[arg(long = "from-llms", value_name = "PATH")]
@@ -642,6 +647,7 @@ fn main() -> Result<()> {
         }
         Commands::Generate {
             repo,
+            local_path,
             from_llms,
             languages,
             output,
@@ -652,6 +658,7 @@ fn main() -> Result<()> {
         } => {
             let options = GenerateOptions {
                 repo,
+                local_path,
                 from_llms,
                 languages,
                 output,
