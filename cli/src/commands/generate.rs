@@ -81,7 +81,8 @@ async fn generate_from_github(repo_str: &str, options: &GenerateOptions) -> Resu
             Some("Rust") => vec![Language::Rust],
             Some("TypeScript") | Some("JavaScript") => vec![Language::TypeScript],
             Some("Python") => vec![Language::Python],
-            _ => vec![Language::Rust, Language::TypeScript, Language::Python],
+            Some("Swift") => vec![Language::Swift],
+            _ => vec![Language::Rust, Language::TypeScript, Language::Python, Language::Swift],
         }
     } else {
         options
@@ -91,6 +92,7 @@ async fn generate_from_github(repo_str: &str, options: &GenerateOptions) -> Resu
                 "rust" | "rs" => Some(Language::Rust),
                 "typescript" | "ts" => Some(Language::TypeScript),
                 "python" | "py" => Some(Language::Python),
+                "swift" => Some(Language::Swift),
                 _ => None,
             })
             .collect()
@@ -299,7 +301,7 @@ async fn generate_from_local(local_path: &Path, options: &GenerateOptions) -> Re
     // Determine languages to parse
     let target_languages: Vec<Language> = if options.languages.is_empty() {
         // Auto-detect: scan for common file extensions
-        vec![Language::Rust, Language::TypeScript, Language::Python]
+        vec![Language::Rust, Language::TypeScript, Language::Python, Language::Swift]
     } else {
         options
             .languages
@@ -308,6 +310,7 @@ async fn generate_from_local(local_path: &Path, options: &GenerateOptions) -> Re
                 "rust" | "rs" => Some(Language::Rust),
                 "typescript" | "ts" => Some(Language::TypeScript),
                 "python" | "py" => Some(Language::Python),
+                "swift" => Some(Language::Swift),
                 _ => None,
             })
             .collect()

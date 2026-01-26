@@ -4,15 +4,18 @@
 //! - Rust: using `syn` crate
 //! - TypeScript: using `tree-sitter-typescript`
 //! - Python: using `tree-sitter-python`
+//! - Swift: using regex-based extraction
 
 mod interface;
 mod python;
 mod rust;
+mod swift;
 mod typescript;
 
 pub use interface::{InterfaceItem, ItemKind, Language, ModuleInfo, ParseResult};
 pub use python::PythonParser;
 pub use rust::RustParser;
+pub use swift::SwiftParser;
 pub use typescript::TypeScriptParser;
 
 use anyhow::Result;
@@ -42,6 +45,7 @@ pub fn parse_file(source: &str, file_path: &str) -> Result<ParseResult> {
         "rs" => RustParser.parse(source, file_path),
         "ts" | "tsx" => TypeScriptParser.parse(source, file_path),
         "py" => PythonParser.parse(source, file_path),
+        "swift" => SwiftParser.parse(source, file_path),
         _ => Ok(ParseResult {
             language: Language::Unknown,
             module: None,
@@ -57,6 +61,7 @@ pub fn detect_languages(files: &[String]) -> Vec<Language> {
     let mut rust_count = 0;
     let mut ts_count = 0;
     let mut py_count = 0;
+    let mut swift_count = 0;
 
     for file in files {
         let ext = file.rsplit('.').next().unwrap_or("").to_lowercase();
@@ -64,6 +69,7 @@ pub fn detect_languages(files: &[String]) -> Vec<Language> {
             "rs" => rust_count += 1,
             "ts" | "tsx" => ts_count += 1,
             "py" => py_count += 1,
+            "swift" => swift_count += 1,
             _ => {}
         }
     }
@@ -78,6 +84,9 @@ pub fn detect_languages(files: &[String]) -> Vec<Language> {
     if py_count > 0 {
         languages.push(Language::Python);
     }
+    if swift_count > 0 {
+        languages.push(Language::Swift);
+    }
 
     // Sort by count (most common first)
     languages.sort_by(|a, b| {
@@ -85,12 +94,14 @@ pub fn detect_languages(files: &[String]) -> Vec<Language> {
             Language::Rust => rust_count,
             Language::TypeScript => ts_count,
             Language::Python => py_count,
+            Language::Swift => swift_count,
             Language::Unknown => 0,
         };
         let count_b = match b {
             Language::Rust => rust_count,
             Language::TypeScript => ts_count,
             Language::Python => py_count,
+            Language::Swift => swift_count,
             Language::Unknown => 0,
         };
         count_b.cmp(&count_a)

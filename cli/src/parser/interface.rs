@@ -8,6 +8,7 @@ pub enum Language {
     Rust,
     TypeScript,
     Python,
+    Swift,
     Unknown,
 }
 
@@ -17,6 +18,7 @@ impl Language {
             Self::Rust => "rust",
             Self::TypeScript => "typescript",
             Self::Python => "python",
+            Self::Swift => "swift",
             Self::Unknown => "unknown",
         }
     }
@@ -26,6 +28,7 @@ impl Language {
             Self::Rust => &["rs"],
             Self::TypeScript => &["ts", "tsx"],
             Self::Python => &["py"],
+            Self::Swift => &["swift"],
             Self::Unknown => &[],
         }
     }

@@ -230,7 +230,7 @@ enum Commands {
         #[arg(long = "from-llms", value_name = "PATH")]
         from_llms: Option<PathBuf>,
 
-        /// Languages to parse (rust, typescript, python)
+        /// Languages to parse (rust, typescript, python, swift)
         #[arg(short = 'l', long = "lang", value_name = "LANG")]
         languages: Vec<String>,
 
