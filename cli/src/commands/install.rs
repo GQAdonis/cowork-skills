@@ -470,9 +470,9 @@ fn install_single_skill(
     Ok(())
 }
 
-/// Copy directory contents recursively
+/// Copy directory contents recursively, following symlinks
 fn copy_dir_contents(src: &Path, dst: &Path) -> Result<()> {
-    for entry in WalkDir::new(src).min_depth(1) {
+    for entry in WalkDir::new(src).min_depth(1).follow_links(true) {
         let entry = entry?;
         let src_path = entry.path();
         let relative = src_path.strip_prefix(src)?;
@@ -1344,14 +1344,16 @@ fn copy_directory(src: &Path, dst: &Path, _recursive: bool) -> Result<()> {
         fs::create_dir_all(dst)?;
     }
 
-    for entry in WalkDir::new(src).into_iter().filter_map(Result::ok) {
+    // follow_links(true) ensures symlinks to directories are recursed into
+    // and their contents are copied as real files/dirs
+    for entry in WalkDir::new(src).follow_links(true).into_iter().filter_map(Result::ok) {
         let path = entry.path();
         let relative = path.strip_prefix(src)?;
         let target = dst.join(relative);
 
-        if path.is_dir() {
+        if entry.file_type().is_dir() {
             fs::create_dir_all(&target)?;
-        } else if path.is_file() {
+        } else if entry.file_type().is_file() {
             if let Some(parent) = target.parent() {
                 fs::create_dir_all(parent)?;
             }
@@ -1360,23 +1362,6 @@ fn copy_directory(src: &Path, dst: &Path, _recursive: bool) -> Result<()> {
                 fs::remove_file(&target).ok(); // Ignore errors, copy will fail if needed
             }
             fs::copy(path, &target)?;
-        } else if path.is_symlink() {
-            // Handle symlinks: recreate them
-            if let Ok(link_target) = fs::read_link(path) {
-                if target.exists() || target.is_symlink() {
-                    fs::remove_file(&target).ok();
-                }
-                #[cfg(unix)]
-                std::os::unix::fs::symlink(&link_target, &target)?;
-                #[cfg(windows)]
-                {
-                    if link_target.is_dir() {
-                        std::os::windows::fs::symlink_dir(&link_target, &target)?;
-                    } else {
-                        std::os::windows::fs::symlink_file(&link_target, &target)?;
-                    }
-                }
-            }
         }
     }
 
