@@ -179,6 +179,23 @@ pub fn get_all_agents() -> HashMap<&'static str, AgentConfig> {
         },
     );
 
+    // Zed: primary path is ~/.config/zed/skills/, fallback is ~/.zed/skills/
+    // Skills are plain directory drops — no manifest or plugin API required.
+    let zed_skills_dir = if home.join(".config/zed").exists() {
+        home.join(".config/zed/skills")
+    } else {
+        home.join(".zed/skills")
+    };
+    agents.insert(
+        "zed",
+        AgentConfig {
+            name: "zed",
+            display_name: "Zed",
+            skills_dir: ".config/zed/skills",
+            global_skills_dir: zed_skills_dir,
+        },
+    );
+
     agents
 }
 
@@ -203,12 +220,20 @@ pub fn detect_installed_agents() -> Vec<&'static str> {
         ("roo", home.join(".roo")),
         ("trae", home.join(".trae")),
         ("windsurf", home.join(".codeium/windsurf")),
+        ("zed", home.join(".config/zed")),
     ];
 
     for (name, path) in checks {
         if path.exists() {
             installed.push(name);
         }
+    }
+
+    // Zed has a dual install location: ~/.config/zed/ (XDG) or ~/.zed/ (legacy)
+    if !installed.contains(&"zed")
+        && (home.join(".zed").exists())
+    {
+        installed.push("zed");
     }
 
     installed
@@ -232,5 +257,6 @@ pub fn get_agent_names() -> Vec<&'static str> {
         "roo",
         "trae",
         "windsurf",
+        "zed",
     ]
 }
