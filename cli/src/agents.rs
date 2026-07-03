@@ -196,6 +196,33 @@ pub fn get_all_agents() -> HashMap<&'static str, AgentConfig> {
         },
     );
 
+    agents.insert(
+        "kimi-code",
+        AgentConfig {
+            name: "kimi-code",
+            display_name: "Kimi Code",
+            skills_dir: ".kimi-code/skills",
+            global_skills_dir: home.join(".kimi-code/skills"),
+        },
+    );
+
+    // Kimi Desktop: macOS path with spaces — use Path::join for each component.
+    agents.insert(
+        "kimi-desktop",
+        AgentConfig {
+            name: "kimi-desktop",
+            display_name: "Kimi Desktop",
+            skills_dir: "Library/Application Support/kimi-desktop/daimon-share/daimon/skills",
+            global_skills_dir: home
+                .join("Library")
+                .join("Application Support")
+                .join("kimi-desktop")
+                .join("daimon-share")
+                .join("daimon")
+                .join("skills"),
+        },
+    );
+
     agents
 }
 
@@ -221,6 +248,13 @@ pub fn detect_installed_agents() -> Vec<&'static str> {
         ("trae", home.join(".trae")),
         ("windsurf", home.join(".codeium/windsurf")),
         ("zed", home.join(".config/zed")),
+        ("kimi-code", home.join(".kimi-code")),
+        (
+            "kimi-desktop",
+            home.join("Library")
+                .join("Application Support")
+                .join("kimi-desktop"),
+        ),
     ];
 
     for (name, path) in checks {
@@ -258,5 +292,7 @@ pub fn get_agent_names() -> Vec<&'static str> {
         "trae",
         "windsurf",
         "zed",
+        "kimi-code",
+        "kimi-desktop",
     ]
 }
