@@ -223,6 +223,19 @@ pub fn get_all_agents() -> HashMap<&'static str, AgentConfig> {
         },
     );
 
+    // MiniMax Code IDE and MiniMax Desktop both share ~/.minimax/skills/ for skill storage.
+    // Note: the `mmx` binary is a media-generation CLI (text/image/video/audio) with no
+    // plugin or skill system — it is explicitly excluded from cowork agent management.
+    agents.insert(
+        "minimax",
+        AgentConfig {
+            name: "minimax",
+            display_name: "MiniMax Code",
+            skills_dir: ".minimax/skills",
+            global_skills_dir: home.join(".minimax/skills"),
+        },
+    );
+
     agents
 }
 
@@ -230,6 +243,9 @@ pub fn detect_installed_agents() -> Vec<&'static str> {
     let home = get_home_dir();
     let mut installed = Vec::new();
 
+    // Note: `mmx` (MiniMax media-generation CLI) has no skill system and is excluded.
+    // MiniMax agent covers both MiniMax Code CLI (~/.minimax/) and MiniMax Desktop
+    // (~/Library/Application Support/MiniMax Agent/); see the fallback block below.
     let checks = [
         ("amp", home.join(".config/amp")),
         ("antigravity", home.join(".gemini/antigravity")),
@@ -243,6 +259,7 @@ pub fn detect_installed_agents() -> Vec<&'static str> {
         ("goose", home.join(".config/goose")),
         ("kilo", home.join(".kilocode")),
         ("kiro-cli", home.join(".kiro")),
+        ("minimax", home.join(".minimax")),
         ("opencode", home.join(".config/opencode")),
         ("roo", home.join(".roo")),
         ("trae", home.join(".trae")),
@@ -264,10 +281,20 @@ pub fn detect_installed_agents() -> Vec<&'static str> {
     }
 
     // Zed has a dual install location: ~/.config/zed/ (XDG) or ~/.zed/ (legacy)
-    if !installed.contains(&"zed")
-        && (home.join(".zed").exists())
-    {
+    if !installed.contains(&"zed") && home.join(".zed").exists() {
         installed.push("zed");
+    }
+
+    // MiniMax Desktop installs to ~/Library/Application Support/MiniMax Agent/ on macOS.
+    // Both MiniMax Code CLI and MiniMax Desktop share ~/.minimax/skills/ for skill storage.
+    if !installed.contains(&"minimax") {
+        let minimax_desktop = home
+            .join("Library")
+            .join("Application Support")
+            .join("MiniMax Agent");
+        if minimax_desktop.exists() {
+            installed.push("minimax");
+        }
     }
 
     installed
@@ -287,6 +314,7 @@ pub fn get_agent_names() -> Vec<&'static str> {
         "goose",
         "kilo",
         "kiro-cli",
+        "minimax",
         "opencode",
         "roo",
         "trae",

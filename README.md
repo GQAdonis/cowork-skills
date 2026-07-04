@@ -2,7 +2,7 @@
 
 [中文](./README-zh.md) | [日本語](./README-ja.md)
 
-> CLI tool for managing Claude Code skills across 16+ AI coding agents
+> CLI tool for managing Claude Code skills across 20+ AI coding agents
 
 [![Crates.io](https://img.shields.io/crates/v/cowork.svg)](https://crates.io/crates/cowork)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -28,6 +28,12 @@
 | Droid | Community | Contributions welcome |
 | Kilo | Community | Contributions welcome |
 | Trae | Community | Contributions welcome |
+| Zed | Community | Primary: `~/.config/zed/skills/`; fallback: `~/.zed/skills/` |
+| Kimi Code | Community | `~/.kimi-code/skills/` |
+| Kimi Desktop | Community | `~/Library/Application Support/kimi-desktop/…/skills/` (macOS) |
+| MiniMax Code | Community | `~/.minimax/skills/` (shared with MiniMax Desktop) |
+
+> **Note on MiniMax:** `cowork` manages the **MiniMax Code** IDE and **MiniMax Agent Desktop** (both share `~/.minimax/skills/`). The `mmx` binary is a media-generation CLI (text/image/video/audio) with no plugin or skill system and is **not** managed by cowork.
 
 > **Note:** CoWork Skills has been fully tested with Claude Code. Support for other agents is based on documented skill directory conventions. **We need community help to test and contribute support for these agents!** If you use any of these tools, please help us verify compatibility and submit PRs.
 
@@ -35,7 +41,7 @@
 
 **CoWork Skills** provides a CLI tool (`cowork` / `co`) for managing skills across multiple coding agents:
 
-- Install skills from GitHub repositories to 16+ AI agents
+- Install skills from GitHub repositories to 20+ AI agents
 - Generate skills from source code (Rust, TypeScript, Python)
 - Project-level configuration with `Skills.toml`
 - Security auditing and checksum verification
@@ -297,7 +303,7 @@ cowork init --remove memory-skills
 
 ## Supported Agents
 
-Install skills to 16+ coding agents:
+Install skills to 20+ coding agents:
 
 | Agent | Flag | Agent | Flag |
 |-------|------|-------|------|
@@ -309,6 +315,8 @@ Install skills to 16+ coding agents:
 | Goose | `-a goose` | Kilo | `-a kilo` |
 | Kiro CLI | `-a kiro-cli` | OpenCode | `-a opencode` |
 | Roo | `-a roo` | Trae | `-a trae` |
+| Zed | `-a zed` | Kimi Code | `-a kimi-code` |
+| Kimi Desktop | `-a kimi-desktop` | MiniMax Code | `-a minimax` |
 
 ```bash
 # Install to multiple agents
