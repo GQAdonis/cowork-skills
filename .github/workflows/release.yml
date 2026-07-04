@@ -1,0 +1,118 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-musl
+            os: ubuntu-latest
+            archive: tar.gz
+          - target: aarch64-apple-darwin
+            os: macos-latest
+            archive: tar.gz
+          - target: x86_64-apple-darwin
+            os: macos-latest
+            archive: tar.gz
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+            archive: zip
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install musl tools (Linux)
+        if: matrix.target == 'x86_64-unknown-linux-musl'
+        run: sudo apt-get install -y musl-tools
+
+      - name: Cache Cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            cli/target/
+          key: ${{ runner.os }}-${{ matrix.target }}-cargo-${{ hashFiles('cli/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-${{ matrix.target }}-cargo-
+
+      - name: Build release binary
+        working-directory: cli
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Get version from tag
+        id: version
+        shell: bash
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Package artifact (Unix)
+        if: matrix.archive == 'tar.gz'
+        shell: bash
+        run: |
+          BIN_DIR="cli/target/${{ matrix.target }}/release"
+          ARTIFACT="cowork-${{ steps.version.outputs.VERSION }}-${{ matrix.target }}"
+          mkdir -p "dist/${ARTIFACT}"
+          cp "${BIN_DIR}/cowork" "dist/${ARTIFACT}/"
+          cp "${BIN_DIR}/co"     "dist/${ARTIFACT}/"
+          tar -C dist -czf "dist/${ARTIFACT}.tar.gz" "${ARTIFACT}"
+          echo "ARTIFACT_PATH=dist/${ARTIFACT}.tar.gz" >> "$GITHUB_ENV"
+          echo "ARTIFACT_NAME=${ARTIFACT}.tar.gz" >> "$GITHUB_ENV"
+
+      - name: Package artifact (Windows)
+        if: matrix.archive == 'zip'
+        shell: pwsh
+        run: |
+          $BIN_DIR = "cli/target/${{ matrix.target }}/release"
+          $VERSION = "${{ steps.version.outputs.VERSION }}"
+          $ARTIFACT = "cowork-${VERSION}-${{ matrix.target }}"
+          New-Item -ItemType Directory -Force "dist/${ARTIFACT}"
+          Copy-Item "${BIN_DIR}/cowork.exe" "dist/${ARTIFACT}/"
+          Compress-Archive -Path "dist/${ARTIFACT}" -DestinationPath "dist/${ARTIFACT}.zip"
+          echo "ARTIFACT_PATH=dist/${ARTIFACT}.zip" | Out-File -FilePath $env:GITHUB_ENV -Append
+          echo "ARTIFACT_NAME=${ARTIFACT}.zip" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ env.ARTIFACT_PATH }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  publish-crate:
+    name: Publish to crates.io
+    runs-on: ubuntu-latest
+    needs: build
+    if: success()
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Publish
+        working-directory: cli
+        run: cargo publish --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        continue-on-error: true
