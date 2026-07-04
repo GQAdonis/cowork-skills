@@ -1,6 +1,7 @@
 pub mod audit;
 pub mod codex_config;
 pub mod config;
+pub mod disk;
 pub mod doctor;
 pub mod generate;
 pub mod init;

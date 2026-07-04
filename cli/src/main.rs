@@ -312,6 +312,23 @@ enum Commands {
         action: ToolchainAction,
     },
 
+    /// Disk space management via the dsg (disk-space-guardian) CLI
+    ///
+    /// All subcommands delegate to `dsg` if it is on PATH.
+    /// When `dsg` is not installed, a non-zero exit with install instructions is emitted.
+    ///
+    /// Examples:
+    ///   cowork disk status                          # dsg status --json
+    ///   cowork disk scan                            # dsg scan
+    ///   cowork disk scan --deep                     # dsg scan --deep
+    ///   cowork disk scan --ecosystem rust           # dsg scan --ecosystem rust
+    ///   cowork disk clean --dry-run                 # dsg clean --dry-run (safe preview)
+    ///   cowork disk clean --ecosystem node          # dsg clean --ecosystem node
+    Disk {
+        #[command(subcommand)]
+        action: DiskAction,
+    },
+
     /// Generate trigger tests for installed skills
     ///
     /// Examples:
@@ -626,6 +643,32 @@ enum ToolchainAction {
     },
 }
 
+#[derive(Subcommand)]
+enum DiskAction {
+    /// Show disk usage summary (delegates to `dsg status --json`)
+    Status,
+    /// Scan filesystem for reclaimable space (delegates to `dsg scan`)
+    Scan {
+        /// Deep scan including nested caches
+        #[arg(long)]
+        deep: bool,
+
+        /// Limit scan to a specific ecosystem (rust, node, python, go, docker, xcode, homebrew)
+        #[arg(long, value_name = "ECOSYSTEM")]
+        ecosystem: Option<String>,
+    },
+    /// Clean reclaimable space (delegates to `dsg clean`)
+    Clean {
+        /// Preview what would be removed without deleting anything (default-safe)
+        #[arg(long)]
+        dry_run: bool,
+
+        /// Limit clean to a specific ecosystem (rust, node, python, go, docker, xcode, homebrew)
+        #[arg(long, value_name = "ECOSYSTEM")]
+        ecosystem: Option<String>,
+    },
+}
+
 fn main() -> Result<()> {
     let cli = Cli::parse();
 
@@ -891,6 +934,15 @@ fn main() -> Result<()> {
             ToolchainAction::Status => commands::toolchain::execute_status(),
             ToolchainAction::Check => commands::toolchain::execute_check(),
             ToolchainAction::Install { tool } => commands::toolchain::execute_install(&tool),
+        },
+        Commands::Disk { action } => match action {
+            DiskAction::Status => commands::disk::execute_status(),
+            DiskAction::Scan { deep, ecosystem } => {
+                commands::disk::execute_scan(deep, ecosystem.as_deref())
+            }
+            DiskAction::Clean { dry_run, ecosystem } => {
+                commands::disk::execute_clean(dry_run, ecosystem.as_deref())
+            }
         },
     }
 }
