@@ -1,11 +1,13 @@
 //! `cowork plugins` command - Manage Claude Code marketplace plugins.
 
 use anyhow::{Context, Result};
+use chrono::Utc;
 use colored::Colorize;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 
 /// Plugin installation info from installed_plugins.json
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -36,6 +38,53 @@ struct InstalledPlugins {
 struct ClaudeSettings {
     #[serde(rename = "enabledPlugins")]
     enabled_plugins: Option<HashMap<String, bool>>,
+}
+
+/// Claude Code plugin manifest (from .claude-plugin/plugin.json or plugin.json)
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct PluginManifest {
+    pub name: String,
+    pub version: String,
+    pub skills: Vec<String>,
+    pub license: String,
+    /// Optional: human-readable description
+    #[serde(default)]
+    pub description: Option<String>,
+}
+
+/// Discover and validate a plugin manifest in a cloned repo directory.
+/// Checks `.claude-plugin/plugin.json` first, then `plugin.json` at root.
+pub fn validate_plugin_manifest(repo_dir: &Path) -> Result<PluginManifest> {
+    let candidates = [
+        repo_dir.join(".claude-plugin").join("plugin.json"),
+        repo_dir.join("plugin.json"),
+    ];
+
+    let manifest_path = candidates
+        .iter()
+        .find(|p| p.exists())
+        .context("No plugin.json found — expected at .claude-plugin/plugin.json or plugin.json")?;
+
+    let content = fs::read_to_string(manifest_path)
+        .with_context(|| format!("Failed to read {}", manifest_path.display()))?;
+
+    let manifest: PluginManifest = serde_json::from_str(&content)
+        .context("plugin.json is not valid JSON or is missing required fields (name, version, skills, license)")?;
+
+    if manifest.name.is_empty() {
+        anyhow::bail!("plugin.json: 'name' field is empty");
+    }
+    if manifest.version.is_empty() {
+        anyhow::bail!("plugin.json: 'version' field is empty");
+    }
+    if manifest.skills.is_empty() {
+        anyhow::bail!("plugin.json: 'skills' array is empty — plugin has no skills");
+    }
+    if manifest.license.is_empty() {
+        anyhow::bail!("plugin.json: 'license' field is empty");
+    }
+
+    Ok(manifest)
 }
 
 /// Get Claude plugins directory
@@ -660,3 +709,268 @@ pub fn execute_remove_marketplace(name: &str) -> Result<()> {
     Ok(())
 }
 
+/// Copy a directory tree recursively (src → dst, creating dst if absent).
+fn copy_dir_all(src: &Path, dst: &Path) -> Result<()> {
+    fs::create_dir_all(dst)?;
+    for entry in fs::read_dir(src)? {
+        let entry = entry?;
+        let ty = entry.file_type()?;
+        let dest = dst.join(entry.file_name());
+        if ty.is_dir() {
+            copy_dir_all(&entry.path(), &dest)?;
+        } else {
+            fs::copy(entry.path(), dest)?;
+        }
+    }
+    Ok(())
+}
+
+/// Get the HEAD git commit SHA in a directory.
+fn get_git_head_sha(dir: &Path) -> Option<String> {
+    Command::new("git")
+        .args(["rev-parse", "HEAD"])
+        .current_dir(dir)
+        .output()
+        .ok()
+        .filter(|o| o.status.success())
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+}
+
+/// Execute `cowork plugins install <git-url> [--local]`
+///
+/// Flow:
+///   1. Clone git URL to a temp directory
+///   2. Discover + validate `.claude-plugin/plugin.json` (or `plugin.json`)
+///   3. Copy plugin to `~/.claude/<plugin-name>/` (user scope) or `.claude/<name>/` (local)
+///   4. Register in `~/.claude/plugins/installed_plugins.json` (idempotent)
+///   5. Add to `settings.json` `enabledPlugins` (idempotent)
+///   6. Report installed skill paths
+pub fn execute_install_plugin(git_url: &str, local: bool) -> Result<()> {
+    println!("{} Installing Claude Code plugin from: {}\n", "→".blue(), git_url.cyan());
+
+    // ── 1. Clone to temp dir ──────────────────────────────────────────────
+    let tmp_dir = std::env::temp_dir().join(format!(
+        "cowork-plugin-clone-{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs()
+    ));
+
+    println!("  {} Cloning repository…", "→".blue());
+    let clone_status = Command::new("git")
+        .args(["clone", "--depth=1", git_url, &tmp_dir.to_string_lossy()])
+        .status()
+        .context("Failed to run `git clone` — is git installed?")?;
+
+    if !clone_status.success() {
+        anyhow::bail!("git clone failed for URL: {}", git_url);
+    }
+    println!("  {} Cloned", "✓".green());
+
+    // ── 2. Validate plugin.json ───────────────────────────────────────────
+    let manifest = validate_plugin_manifest(&tmp_dir)?;
+    println!(
+        "  {} Validated plugin.json: {} v{} ({} skills)",
+        "✓".green(),
+        manifest.name.cyan(),
+        manifest.version,
+        manifest.skills.len()
+    );
+
+    // ── 3. Determine install path ─────────────────────────────────────────
+    let install_base: PathBuf = if local {
+        std::env::current_dir()
+            .context("Cannot determine current directory")?
+            .join(".claude")
+            .join(&manifest.name)
+    } else {
+        dirs::home_dir()
+            .context("Cannot find home directory")?
+            .join(".claude")
+            .join(&manifest.name)
+    };
+
+    // Copy the full repo into the install directory (idempotent overwrite).
+    println!("  {} Installing to {}…", "→".blue(), install_base.display());
+    copy_dir_all(&tmp_dir, &install_base)
+        .with_context(|| format!("Failed to copy plugin to {}", install_base.display()))?;
+    println!("  {} Installed", "✓".green());
+
+    // ── 4. Get commit SHA ────────────────────────────────────────────────
+    let commit_sha = get_git_head_sha(&tmp_dir);
+
+    // ── 5. Register in installed_plugins.json ────────────────────────────
+    let now = Utc::now().to_rfc3339();
+    let scope = if local { "project" } else { "user" };
+    let plugin_key = format!("{}@{}", manifest.name, manifest.name);
+
+    let new_installation = PluginInstallation {
+        scope: scope.to_string(),
+        install_path: install_base.to_string_lossy().to_string(),
+        version: manifest.version.clone(),
+        installed_at: now.clone(),
+        last_updated: now.clone(),
+        git_commit_sha: commit_sha,
+        project_path: if local {
+            std::env::current_dir().ok().map(|p| p.to_string_lossy().to_string())
+        } else {
+            None
+        },
+    };
+
+    let mut installed = load_installed_plugins()?;
+    let installs = installed.plugins.entry(plugin_key.clone()).or_default();
+
+    // Idempotent: replace existing entry for this scope+path, or add new.
+    let existing_idx = installs.iter().position(|i| i.scope == scope && i.install_path == new_installation.install_path);
+    match existing_idx {
+        Some(idx) => {
+            installs[idx] = new_installation;
+            println!("  {} Updated existing entry in installed_plugins.json", "✓".green());
+        }
+        None => {
+            installs.push(new_installation);
+            println!("  {} Registered in installed_plugins.json", "✓".green());
+        }
+    }
+
+    let plugins_dir = get_claude_plugins_dir()?;
+    fs::create_dir_all(&plugins_dir)?;
+    save_installed_plugins(&installed)?;
+
+    // ── 6. Update settings.json enabledPlugins ────────────────────────────
+    let settings_path = if local {
+        std::env::current_dir()
+            .context("Cannot determine current directory")?
+            .join(".claude")
+            .join("settings.json")
+    } else {
+        get_claude_settings_path()?
+    };
+
+    let mut settings = if settings_path.exists() {
+        let content = fs::read_to_string(&settings_path)?;
+        serde_json::from_str::<serde_json::Value>(&content).unwrap_or(serde_json::json!({}))
+    } else {
+        serde_json::json!({})
+    };
+
+    if settings.get("enabledPlugins").is_none() {
+        settings["enabledPlugins"] = serde_json::json!({});
+    }
+    // Only set to true when not already present (preserve explicit false).
+    if settings["enabledPlugins"].get(&plugin_key).is_none() {
+        settings["enabledPlugins"][&plugin_key] = serde_json::Value::Bool(true);
+        if let Some(parent) = settings_path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        let content = serde_json::to_string_pretty(&settings)?;
+        fs::write(&settings_path, content)?;
+        println!("  {} Registered in settings.json enabledPlugins", "✓".green());
+    } else {
+        println!("  {} enabledPlugins entry already present (no change)", "✓".green());
+    }
+
+    // ── 7. Cleanup temp dir ───────────────────────────────────────────────
+    let _ = fs::remove_dir_all(&tmp_dir);
+
+    // ── 8. Report installed skills ────────────────────────────────────────
+    println!("\n{} Plugin '{}' installed successfully!\n", "✓".green(), manifest.name.cyan());
+    println!("  {}", "Skills installed:".cyan());
+    for skill in &manifest.skills {
+        let skill_path = install_base.join(skill);
+        println!("    {} {}", "●".blue(), skill_path.display());
+    }
+    println!("\n{} Restart Claude Code to activate the plugin", "ℹ".blue());
+
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Write;
+    use tempfile::TempDir;
+
+    fn write_plugin_json(dir: &Path, content: &str) {
+        let claude_plugin_dir = dir.join(".claude-plugin");
+        fs::create_dir_all(&claude_plugin_dir).unwrap();
+        let mut f = fs::File::create(claude_plugin_dir.join("plugin.json")).unwrap();
+        f.write_all(content.as_bytes()).unwrap();
+    }
+
+    #[test]
+    fn test_validate_plugin_manifest_valid() {
+        let tmp = TempDir::new().unwrap();
+        write_plugin_json(
+            tmp.path(),
+            r#"{"name":"test-plugin","version":"1.0.0","skills":["skills/foo"],"license":"MIT"}"#,
+        );
+        let manifest = validate_plugin_manifest(tmp.path()).unwrap();
+        assert_eq!(manifest.name, "test-plugin");
+        assert_eq!(manifest.version, "1.0.0");
+        assert_eq!(manifest.skills, vec!["skills/foo"]);
+        assert_eq!(manifest.license, "MIT");
+    }
+
+    #[test]
+    fn test_validate_plugin_manifest_missing_name() {
+        let tmp = TempDir::new().unwrap();
+        write_plugin_json(
+            tmp.path(),
+            r#"{"name":"","version":"1.0.0","skills":["skills/foo"],"license":"MIT"}"#,
+        );
+        assert!(validate_plugin_manifest(tmp.path()).is_err());
+    }
+
+    #[test]
+    fn test_validate_plugin_manifest_missing_skills() {
+        let tmp = TempDir::new().unwrap();
+        write_plugin_json(
+            tmp.path(),
+            r#"{"name":"test","version":"1.0.0","skills":[],"license":"MIT"}"#,
+        );
+        assert!(validate_plugin_manifest(tmp.path()).is_err());
+    }
+
+    #[test]
+    fn test_validate_plugin_manifest_no_json() {
+        let tmp = TempDir::new().unwrap();
+        // No plugin.json anywhere — should fail
+        assert!(validate_plugin_manifest(tmp.path()).is_err());
+    }
+
+    #[test]
+    fn test_installed_plugins_idempotent_merge() {
+        // Two installations of the same plugin key should result in 2 entries
+        // (different scopes), but same scope+path should be replaced.
+        let mut map: HashMap<String, Vec<PluginInstallation>> = HashMap::new();
+        let entry = PluginInstallation {
+            scope: "user".to_string(),
+            install_path: "/home/user/.claude/myplugin".to_string(),
+            version: "1.0.0".to_string(),
+            installed_at: "2026-07-04T00:00:00Z".to_string(),
+            last_updated: "2026-07-04T00:00:00Z".to_string(),
+            git_commit_sha: Some("abc123".to_string()),
+            project_path: None,
+        };
+        map.entry("myplugin@myplugin".to_string()).or_default().push(entry.clone());
+
+        // Same scope+path → should replace
+        let updated = PluginInstallation {
+            version: "2.0.0".to_string(),
+            git_commit_sha: Some("def456".to_string()),
+            ..entry.clone()
+        };
+        let installs = map.get_mut("myplugin@myplugin").unwrap();
+        let idx = installs.iter().position(|i| i.scope == "user" && i.install_path == "/home/user/.claude/myplugin");
+        assert!(idx.is_some());
+        installs[idx.unwrap()] = updated;
+
+        let installs = map.get("myplugin@myplugin").unwrap();
+        assert_eq!(installs.len(), 1, "idempotent: still only one entry");
+        assert_eq!(installs[0].version, "2.0.0");
+        assert_eq!(installs[0].git_commit_sha.as_deref(), Some("def456"));
+    }
+}

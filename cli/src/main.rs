@@ -524,6 +524,19 @@ enum ConfigAction {
 
 #[derive(Subcommand)]
 enum PluginsAction {
+    /// Install a Claude Code plugin from a git URL
+    ///
+    /// Examples:
+    ///   cowork plugins install git@github.com:Org/my-plugin.git
+    ///   cowork plugins install https://github.com/Org/my-plugin.git --local
+    Install {
+        /// Git URL of the plugin repository
+        git_url: String,
+        /// Install to current project .claude/ instead of global ~/.claude/
+        #[arg(short, long)]
+        local: bool,
+    },
+
     /// List all marketplace plugins installed via /plugin
     List {
         /// Show detailed information
@@ -684,6 +697,9 @@ fn main() -> Result<()> {
             commands::search::execute(options)
         }
         Commands::Plugins { action } => match action {
+            PluginsAction::Install { git_url, local } => {
+                commands::plugins::execute_install_plugin(&git_url, local)
+            }
             PluginsAction::List { verbose } => commands::plugins::execute_list(verbose),
             PluginsAction::Status => commands::plugins::execute_status(),
             PluginsAction::Uninstall { plugin_id } => {
