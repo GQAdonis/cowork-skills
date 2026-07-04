@@ -301,6 +301,17 @@ enum Commands {
         action: PackAction,
     },
 
+    /// Check prometheus toolchain health (binaries, Rust, MCP services)
+    ///
+    /// Examples:
+    ///   cowork toolchain status                     # Pretty-print full toolchain health table
+    ///   cowork toolchain check                      # Exit 0=healthy, 1=missing tools (CI-friendly)
+    ///   cowork toolchain install node               # Print install instructions for a specific tool
+    Toolchain {
+        #[command(subcommand)]
+        action: ToolchainAction,
+    },
+
     /// Generate trigger tests for installed skills
     ///
     /// Examples:
@@ -602,6 +613,19 @@ enum PackAction {
     Repair,
 }
 
+#[derive(Subcommand)]
+enum ToolchainAction {
+    /// Pretty-print full toolchain health (Rust, binaries, MCP services)
+    Status,
+    /// Exit 0 if all required tools present, 1 otherwise (CI-friendly)
+    Check,
+    /// Print install instructions for a specific tool
+    Install {
+        /// Tool name (e.g., node, rustc, dsg, surreal-memory)
+        tool: String,
+    },
+}
+
 fn main() -> Result<()> {
     let cli = Cli::parse();
 
@@ -862,6 +886,11 @@ fn main() -> Result<()> {
             PackAction::Status => commands::pack::execute_status(),
             PackAction::Update => commands::pack::execute_update(),
             PackAction::Repair => commands::pack::execute_repair(),
+        },
+        Commands::Toolchain { action } => match action {
+            ToolchainAction::Status => commands::toolchain::execute_status(),
+            ToolchainAction::Check => commands::toolchain::execute_check(),
+            ToolchainAction::Install { tool } => commands::toolchain::execute_install(&tool),
         },
     }
 }

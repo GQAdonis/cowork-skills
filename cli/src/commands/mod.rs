@@ -9,6 +9,7 @@ pub mod list;
 pub mod opencode_config;
 pub mod pack;
 pub mod plugins;
+pub mod toolchain;
 pub mod search;
 pub mod status;
 pub mod test;
