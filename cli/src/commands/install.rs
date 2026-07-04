@@ -323,6 +323,13 @@ pub fn execute(options: InstallOptions) -> Result<()> {
         }
     }
 
+    // Post-install: register OpenCode plugin when opencode was in the target set
+    if target_agents.contains(&"opencode") && !options.uninstall {
+        if let Err(e) = crate::commands::opencode_config::configure_opencode(None) {
+            println!("  {} OpenCode post-install config skipped: {}", "⚠".yellow(), e);
+        }
+    }
+
     Ok(())
 }
 
