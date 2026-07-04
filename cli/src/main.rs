@@ -290,6 +290,17 @@ enum Commands {
         action: PluginsAction,
     },
 
+    /// Manage the prometheus-skill-pack installation
+    ///
+    /// Examples:
+    ///   cowork pack status                          # Show pack version + skill counts per platform
+    ///   cowork pack update                          # Run install-skills-flat.sh to refresh all platforms
+    ///   cowork pack repair                          # Detect broken symlinks; reinstall affected platforms
+    Pack {
+        #[command(subcommand)]
+        action: PackAction,
+    },
+
     /// Generate trigger tests for installed skills
     ///
     /// Examples:
@@ -581,6 +592,16 @@ enum PluginsAction {
     },
 }
 
+#[derive(Subcommand)]
+enum PackAction {
+    /// Show prometheus-skill-pack version and installed skill counts per platform
+    Status,
+    /// Run install-skills-flat.sh to update all platforms
+    Update,
+    /// Detect broken symlinks and repair affected platforms
+    Repair,
+}
+
 fn main() -> Result<()> {
     let cli = Cli::parse();
 
@@ -837,5 +858,10 @@ fn main() -> Result<()> {
                 }
             }
         }
+        Commands::Pack { action } => match action {
+            PackAction::Status => commands::pack::execute_status(),
+            PackAction::Update => commands::pack::execute_update(),
+            PackAction::Repair => commands::pack::execute_repair(),
+        },
     }
 }

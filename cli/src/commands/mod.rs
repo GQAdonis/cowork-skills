@@ -7,6 +7,7 @@ pub mod init;
 pub mod install;
 pub mod list;
 pub mod opencode_config;
+pub mod pack;
 pub mod plugins;
 pub mod search;
 pub mod status;
