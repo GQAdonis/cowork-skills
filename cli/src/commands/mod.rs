@@ -1,4 +1,5 @@
 pub mod audit;
+pub mod codex_config;
 pub mod config;
 pub mod doctor;
 pub mod generate;

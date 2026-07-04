@@ -314,7 +314,16 @@ pub fn execute(options: InstallOptions) -> Result<()> {
             Ok(())
         }
         (None, false, false, false) => install_current_project(&target_agents, &options),
+    }?;
+
+    // Post-install: run Codex-specific config when codex was in the target set
+    if target_agents.contains(&"codex") && !options.uninstall {
+        if let Err(e) = crate::commands::codex_config::configure_codex(None) {
+            println!("  {} Codex post-install config skipped: {}", "⚠".yellow(), e);
+        }
     }
+
+    Ok(())
 }
 
 /// Install skills from a local path
